@@ -11147,3 +11147,386 @@ html.is-replay #world {
 .ui-world-chip__visitors[hidden] {
   display: none;
 }
+
+/* ------------------------------------------------------------------ janela de arquivos (ui/files.ts, ui/filespane.ts) */
+
+/* Reaproveita a janela do terminal (barra, posição, expandir, alças); aqui só o miolo. */
+.ui-files {
+  z-index: 32;
+}
+
+.ui-files__who {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  margin-left: 2px;
+  padding-left: 10px;
+  border-left: 1px solid var(--ui-line);
+}
+
+.ui-files__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 14px/1.2 var(--font-px);
+  letter-spacing: 0.02em;
+  color: #f3f6fc;
+}
+
+.ui-files__host {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: #0a0c12;
+}
+
+.ui-files__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Árvore à esquerda */
+.ui-files__side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: clamp(200px, 30%, 320px);
+  min-height: 0;
+  border-right: 1px solid var(--ui-line);
+}
+
+.ui-files__tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--ui-line);
+}
+
+.ui-files__filter {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ui-text);
+  font: 12.5px/1 var(--font-mono);
+}
+
+.ui-files__filter::placeholder {
+  color: var(--ui-faint);
+}
+
+.ui-files__filter:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -1px;
+}
+
+.ui-files__reload {
+  flex: none;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.ui-files__tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0 8px;
+  font: 12.5px/1.35 var(--font-mono);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 176, 210, 0.25) transparent;
+}
+
+.ui-files__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: max-content;
+  height: 24px;
+  padding: 0 10px 0 calc(6px + var(--depth, 0) * 14px);
+  border: 0;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-files__row:hover {
+  background: var(--ui-bg-hover);
+}
+
+.ui-files__row:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
+}
+
+.ui-files__row.is-selected {
+  background: var(--ui-accent-soft);
+  color: #fff;
+}
+
+.ui-files__row.is-blocked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-files__row.is-blocked:hover {
+  background: transparent;
+}
+
+.ui-files__caret {
+  flex: none;
+  width: 12px;
+  color: var(--ui-muted);
+  text-align: center;
+}
+
+.ui-files__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  color: var(--ui-muted);
+}
+
+.ui-files__row[data-kind='dir'] .ui-files__icon {
+  color: var(--ui-accent);
+}
+
+.ui-files__icon .ui-px-icon {
+  width: 12px;
+  height: 14px;
+}
+
+.ui-files__name {
+  flex: 1;
+}
+
+.ui-files__fsize {
+  flex: none;
+  margin-left: 12px;
+  font-size: 11px;
+  color: var(--ui-faint);
+}
+
+.ui-files__note {
+  margin: 0;
+  padding: 3px 10px 3px calc(26px + var(--depth, 0) * 14px);
+  font: 12px/1.4 var(--font-ui);
+  color: var(--ui-faint);
+  white-space: nowrap;
+}
+
+.ui-files__note.is-error {
+  color: #ff8a80;
+}
+
+/* Visualizador à direita */
+.ui-files__view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ui-files__viewbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--ui-line);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.ui-files__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12.5px/1.2 var(--font-mono);
+  color: var(--ui-text);
+}
+
+.ui-files__size {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ui-muted);
+}
+
+.ui-files__md-toggle {
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.ui-files__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #0a0c12;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 176, 210, 0.25) transparent;
+}
+
+.ui-files__msg {
+  margin: 0;
+  padding: 18px 16px;
+  font-size: 13px;
+  color: var(--ui-muted);
+}
+
+.ui-files__msg.is-error {
+  color: #ff8a80;
+}
+
+.ui-files__md {
+  padding: 14px 18px 24px;
+  font: 13px/1.55 var(--font-ui);
+  color: var(--ui-text);
+}
+
+/* Código: números de linha fixos à esquerda, o texto rola junto; sempre fonte monoespaçada. */
+.ui-files__code {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  font: 12.5px/1.5 var(--font-mono);
+  tab-size: 4;
+}
+
+.ui-files__nums,
+.ui-files__src {
+  margin: 0;
+  padding: 10px 0;
+  font: inherit;
+}
+
+.ui-files__nums {
+  position: sticky;
+  left: 0;
+  flex: none;
+  min-width: 3ch;
+  padding: 10px 10px 10px 12px;
+  background: #0d1017;
+  border-right: 1px solid var(--ui-line);
+  color: var(--ui-faint);
+  text-align: right;
+  user-select: none;
+}
+
+.ui-files__src {
+  flex: 1;
+  padding-left: 14px;
+  padding-right: 24px;
+  color: #d5dceb;
+  white-space: pre;
+}
+
+.ui-files__codetext {
+  display: block;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+/* Tema do realce (highlight.js, só as classes): escuro, como a janela. */
+.ui-files__codetext .hljs-comment,
+.ui-files__codetext .hljs-quote {
+  color: #7d88a3;
+  font-style: italic;
+}
+
+.ui-files__codetext .hljs-keyword,
+.ui-files__codetext .hljs-selector-tag,
+.ui-files__codetext .hljs-literal,
+.ui-files__codetext .hljs-doctag,
+.ui-files__codetext .hljs-meta .hljs-keyword {
+  color: #c4a2f5;
+}
+
+.ui-files__codetext .hljs-string,
+.ui-files__codetext .hljs-regexp,
+.ui-files__codetext .hljs-addition,
+.ui-files__codetext .hljs-meta .hljs-string {
+  color: #9fd88a;
+}
+
+.ui-files__codetext .hljs-number,
+.ui-files__codetext .hljs-symbol,
+.ui-files__codetext .hljs-bullet,
+.ui-files__codetext .hljs-link {
+  color: #ffa56b;
+}
+
+.ui-files__codetext .hljs-title,
+.ui-files__codetext .hljs-section,
+.ui-files__codetext .hljs-title.function_ {
+  color: #7cc8ff;
+}
+
+.ui-files__codetext .hljs-type,
+.ui-files__codetext .hljs-built_in,
+.ui-files__codetext .hljs-title.class_,
+.ui-files__codetext .hljs-selector-class,
+.ui-files__codetext .hljs-selector-id {
+  color: #f0c674;
+}
+
+.ui-files__codetext .hljs-attr,
+.ui-files__codetext .hljs-attribute,
+.ui-files__codetext .hljs-property,
+.ui-files__codetext .hljs-variable,
+.ui-files__codetext .hljs-template-variable {
+  color: #6fdcc8;
+}
+
+.ui-files__codetext .hljs-name,
+.ui-files__codetext .hljs-tag {
+  color: #f08a9a;
+}
+
+.ui-files__codetext .hljs-meta {
+  color: #9aa4b8;
+}
+
+.ui-files__codetext .hljs-deletion {
+  color: #ff8a80;
+}
+
+.ui-files__codetext .hljs-emphasis {
+  font-style: italic;
+}
+
+.ui-files__codetext .hljs-strong {
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .ui-files__body {
+    flex-direction: column;
+  }
+
+  .ui-files__side {
+    width: auto;
+    height: 38%;
+    border-right: 0;
+    border-bottom: 1px solid var(--ui-line);
+  }
+}

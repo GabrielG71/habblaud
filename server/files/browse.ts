@@ -6,7 +6,7 @@ import { constants } from 'node:fs';
 import { open, readdir, realpath, stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { tr } from '../../shared/i18n';
-import { SECRET_DIRS, SECRET_NAMES } from '../deliveries/files';
+import { SECRET_DIRS } from '../deliveries/files';
 import type { FixedRoom } from '../model/fixed';
 
 export const TREE_MAX_ENTRIES = 2000;
@@ -37,13 +37,19 @@ export class BrowseError extends Error {
   }
 }
 
-/** Além das listas de entregas/files.ts: chaves, certificados e o mapa de infraestrutura (.env.example é de ler). */
-const EXTRA_SECRET_NAMES = /^(\.env(\..*)?|id_rsa.*|.*\.(pem|key|p12|pfx)|tcr-base\.txt)$/i;
+/**
+ * Nomes de arquivo que são segredo (lista própria e estreita do explorador; a das entregas, em deliveries/files.ts,
+ * bloqueia qualquer nome com "token", "senha"... e esconderia código legítimo como token.service.ts).
+ * `.env` e `.env.*` fecham, menos os modelos (.env.example, .env.sample, .env.template).
+ */
+const SECRET_NAMES =
+  /^(\.env(\..*)?|.*\.(pem|key|p12|pfx|keystore|jks)|id_rsa.*|id_ed25519.*|\.npmrc|\.netrc|\.pgpass|credentials(\.json)?|secrets\.(json|ya?ml)|service-account.*\.json|tcr-base\.txt)$/i;
+const ENV_TEMPLATES = /^\.env\.(example|sample|template)$/i;
 
 /** O componente (nome de arquivo ou pasta) é segredo? */
 function secretName(name: string): boolean {
-  if (name.toLowerCase() === '.env.example') return false;
-  return SECRET_NAMES.test(name) || EXTRA_SECRET_NAMES.test(name);
+  if (ENV_TEMPLATES.test(name)) return false;
+  return SECRET_NAMES.test(name);
 }
 
 /** Algum componente do caminho relativo (já normalizado, com "/") é segredo? `.git` também não abre. */

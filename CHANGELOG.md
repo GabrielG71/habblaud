@@ -15,7 +15,18 @@ do meio (0.**3**.0).
 - **Explorador de arquivos das salas fixas (API, somente leitura):** `GET /api/files/tree` lista as pastas e
   `GET /api/files/raw` devolve o texto dos arquivos de uma sala fixa. O acesso fica dentro da pasta da sala (links que
   saem dela são recusados), segredos (`.env`, chaves, `.ssh`...) aparecem como bloqueados e nunca são lidos, e só
-  vale pelo próprio computador, como o terminal. Ainda sem tela.
+  vale pelo próprio computador, como o terminal.
+- **Botão "Arquivos" nas salas fixas:** na gaveta da sala e ao lado do "Ligar aqui" do gestor residente, abre uma janela
+  flutuante (móvel, redimensionável e expansível) com a árvore de pastas, carregada pasta a pasta, e um visualizador
+  só de leitura com número de linha e realce de sintaxe (highlight.js, carregado sob demanda). `.md` abre
+  renderizado, com alternância para o fonte; "copiar caminho" copia o caminho absoluto.
+
+### Alterado
+
+- **Explorador de arquivos: a lista de segredos ficou estreita.** Só `.env`/`.env.*` (menos `.env.example`,
+  `.env.sample` e `.env.template`), chaves e certificados, `.npmrc`, `.netrc`, `.pgpass`, `credentials*`,
+  `secrets.*` e `service-account*.json` ficam bloqueados; código como `token.service.ts` ou `RecuperarSenha.js` passa
+  a abrir. As entregas continuam com a regra de antes.
 
 ## [1.0.3] - 2026-10-16
 

@@ -45,6 +45,7 @@ import { accountChipLabel, accountProvider, CODEX_LIVE_HINT, codexApprovalLabel,
 import { ptyControllable } from './ptyapi';
 import { createAgentRow, updateAgentRow } from './rows';
 import { TERMINAL_UNAVAILABLE_HINT, type TerminalControl } from './terminal';
+import type { FilesControl } from './files';
 import { Movable } from './movable';
 import type { PtyControl } from './pty';
 import { richText } from './usage';
@@ -219,6 +220,8 @@ class AgentView {
   private launchLabel: HTMLElement;
   /** Segunda opção do residente: liga a sessão aqui, no terminal do Habblaud (pty). */
   private launchHereBtn: HTMLButtonElement;
+  /** Gestor residente: abre a janela de arquivos da sala (a sala fixa dele). */
+  private filesBtn: HTMLButtonElement;
   private launchMsg: HTMLElement;
   private termLabel: HTMLElement;
   /** Por que o terminal não abre: no celular não há hover para ler o title, então o toque mostra o motivo aqui. */
@@ -273,6 +276,7 @@ class AgentView {
     private ctx: UiContext,
     private terminal: TerminalControl,
     private pty: PtyControl,
+    private files: FilesControl,
   ) {
     this.avatar = createAvatarPlaceholder('lg');
     this.name = h('h2', { class: 'ui-hero__name' });
@@ -343,6 +347,15 @@ class AgentView {
       hereIcon,
       h('span', { class: 'ui-term-cta__label', text: tr('Ligar aqui') }),
       h('span', { class: 'ui-term-cta__ro', text: tr('terminal do Habblaud') }),
+    );
+    const filesIcon = h('span', { class: 'ui-term-cta__icon', attrs: { 'aria-hidden': 'true' } });
+    filesIcon.innerHTML = ICONS.folder;
+    this.filesBtn = h(
+      'button',
+      { class: 'ui-btn ui-term-cta', type: 'button', hidden: true, attrs: { 'aria-pressed': 'false' }, title: tr('Abre a árvore de pastas e o visualizador de arquivos desta sala'), on: { click: () => this.toggleFiles() } },
+      filesIcon,
+      h('span', { class: 'ui-term-cta__label', text: tr('Arquivos') }),
+      h('span', { class: 'ui-term-cta__ro', text: tr('só leitura') }),
     );
     this.launchMsg = h('p', { class: 'ui-term-cta__why', hidden: true, attrs: { role: 'status' } });
 
@@ -437,6 +450,7 @@ class AgentView {
       statusRow,
       this.launchBtn,
       this.launchHereBtn,
+      this.filesBtn,
       this.launchMsg,
       this.termBtn,
       this.termWhy,
@@ -594,6 +608,10 @@ class AgentView {
     this.renderTerminalButton(!!live);
     setHidden(this.launchBtn, !a.resident || !a.launch);
     setHidden(this.launchHereBtn, !a.resident || !this.pty.enabled);
+    setHidden(this.filesBtn, !a.resident);
+    const filesOpen = this.files.roomId === a.roomId;
+    setAttr(this.filesBtn, 'aria-pressed', String(filesOpen));
+    this.filesBtn.classList.toggle('is-on', filesOpen);
     setHidden(this.termBtn, !!a.resident);
     if (a.resident) setHidden(this.termWhy, true);
     else setHidden(this.launchMsg, true);
@@ -724,6 +742,13 @@ class AgentView {
     window.location.href = `vscode://gabriel.habblaud-ponte/abrir?projeto=${encodeURIComponent(projeto)}`;
     setText(this.launchLabel, tr('Abrindo no VS Code…'));
     window.setTimeout(() => setText(this.launchLabel, tr('Ligar')), 6_000);
+  }
+
+  private toggleFiles(): void {
+    const roomId = this.last?.roomId;
+    if (!roomId) return;
+    if (this.files.roomId === roomId) this.files.close();
+    else this.files.open(roomId);
   }
 
   /** Liga o gestor residente aqui: Claude Code novo na pasta da sala, num terminal do Habblaud (o servidor põe o gestor). */
@@ -862,12 +887,18 @@ class RoomView {
   private feed: KeyedList<FeedItem>;
   private feedSec: ReturnType<typeof section>;
   private newBtn: HTMLButtonElement;
+  private filesBtn: HTMLButtonElement;
   private newMsg: HTMLElement;
 
   constructor(
     private ctx: UiContext,
     private pty: PtyControl,
+    private files: FilesControl,
   ) {
+    // Arquivos: só as salas fixas respondem; nas outras a janela mostra o aviso (a API devolve 404).
+    this.filesBtn = h('button', { class: 'ui-btn', type: 'button', attrs: { 'aria-pressed': 'false' }, title: tr('Abre a árvore de pastas e o visualizador de arquivos desta sala'), on: { click: () => this.toggleFiles() } });
+    this.filesBtn.innerHTML = ICONS.folder;
+    this.filesBtn.append(h('span', { text: tr('Arquivos') }));
     this.newBtn = h('button', { class: 'ui-btn', type: 'button', text: tr('Nova sessão'), title: tr('Abre um Claude Code novo nesta pasta, num terminal interativo'), on: { click: () => this.newSession() } });
     this.newMsg = h('p', { class: 'ui-actions__msg is-error', role: 'status', hidden: true });
     this.swatch = h('span', { class: 'ui-room-hero__swatch', attrs: { 'aria-hidden': 'true' } });
@@ -929,7 +960,7 @@ class RoomView {
         h('div', { class: 'ui-hero__text' }, h('div', { class: 'ui-room-hero__title' }, this.name, this.renameBtn), h('span', { class: 'ui-copy-row' }, this.path, copyButton(() => this.last?.path ?? '', tr('Copiar caminho')))),
       ),
       this.gone,
-      h('div', { class: 'ui-status' }, accsEl, h('span', { class: 'ui-status__actions' }, this.newBtn, centerBtn)),
+      h('div', { class: 'ui-status' }, accsEl, h('span', { class: 'ui-status__actions' }, this.newBtn, this.filesBtn, centerBtn)),
       this.newMsg,
       this.agentsSec.el,
       this.tasksSec.el,
@@ -939,6 +970,12 @@ class RoomView {
 
   get roomId(): string {
     return this.id;
+  }
+
+  private toggleFiles(): void {
+    if (!this.id) return;
+    if (this.files.roomId === this.id) this.files.close();
+    else this.files.open(this.id);
   }
 
   /** Sessão nova na pasta da sala, na conta de quem estiver nela (ou na padrão). */
@@ -979,6 +1016,9 @@ class RoomView {
     setHidden(this.gone, !!live);
     setHidden(this.renameBtn, !live || !canRenameRoom(this.ctx, r.id));
     setHidden(this.newBtn, !this.pty.enabled);
+    const filesOpen = this.files.roomId === r.id;
+    setAttr(this.filesBtn, 'aria-pressed', String(filesOpen));
+    this.filesBtn.classList.toggle('is-on', filesOpen);
 
     const snap = this.ctx.store.snapshot;
     const agents = (snap?.agents ?? []).filter((a) => a.roomId === r.id);
@@ -1017,9 +1057,10 @@ export class Drawer implements UiComponent {
     private ctx: UiContext,
     terminal: TerminalControl,
     pty: PtyControl,
+    files: FilesControl,
   ) {
-    this.agentView = new AgentView(ctx, terminal, pty);
-    this.roomView = new RoomView(ctx, pty);
+    this.agentView = new AgentView(ctx, terminal, pty, files);
+    this.roomView = new RoomView(ctx, pty, files);
     this.heading = h('span', { class: 'ui-drawer__kind' });
     const close = iconButton(ICONS.close, tr('Fechar detalhes (Esc)'), () => ctx.select(null));
     this.body = h('div', { class: 'ui-drawer__body' });

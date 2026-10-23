@@ -111,6 +111,36 @@ async function start(): Promise<Env> {
   };
 }
 
+/** Nomes que o explorador trata como segredo (lista própria e estreita em server/files/browse.ts). */
+const SECRET_FILES = [
+  '.env',
+  '.env.local',
+  '.env.production',
+  'chave.pem',
+  'a.key',
+  'id_rsa',
+  'id_rsa.pub',
+  'id_ed25519',
+  'cert.p12',
+  'x.pfx',
+  'app.keystore',
+  'app.jks',
+  '.npmrc',
+  '.netrc',
+  '.pgpass',
+  'credentials',
+  'credentials.json',
+  'secrets.json',
+  'secrets.yml',
+  'secrets.yaml',
+  'service-account.json',
+  'service-account-prod.json',
+  'tcr-base.txt',
+];
+
+/** Nomes com secret/token/senha/password que são código e precisam abrir. */
+const READABLE_LOOKALIKES = ['token.service.ts', 'RecuperarSenha.js', 'password-reset.ts', 'secret-santa.md', 'credentials-form.tsx'];
+
 const names = (r: Res): string[] => r.json.entries.map((e: { name: string }) => e.name);
 const entry = (r: Res, name: string) => r.json.entries.find((e: { name: string }) => e.name === name);
 
@@ -127,11 +157,14 @@ describe('GET /api/files/tree e /api/files/raw', () => {
     writeFileSync(join(room, 'node_modules', 'x.js'), '1');
     writeFileSync(join(room, 'sub', 'dentro.md'), '# dentro');
     // Segredos de mentira (o conteúdo é só um marcador para provar que nunca sai).
-    for (const f of ['.env', '.env.local', 'chave.pem', 'a.key', 'id_rsa', 'cert.p12', 'x.pfx', 'tcr-base.txt']) writeFileSync(join(room, f), 'MARCADOR_SEGREDO');
+    for (const f of SECRET_FILES) writeFileSync(join(room, f), 'MARCADOR_SEGREDO');
+    // Código que só tem cara de segredo no nome: precisa abrir.
+    for (const f of READABLE_LOOKALIKES) writeFileSync(join(room, f), 'export const ok = 1;\n');
     writeFileSync(join(room, 'sub', '.env'), 'MARCADOR_SEGREDO');
     writeFileSync(join(room, '.ssh', 'known_hosts'), 'MARCADOR_SEGREDO');
     writeFileSync(join(room, '.aws', 'config'), 'MARCADOR_SEGREDO');
     writeFileSync(join(room, '.env.example'), 'CHAVE=\n');
+    for (const f of ['.env.sample', '.env.template']) writeFileSync(join(room, f), 'CHAVE=\n');
     writeFileSync(join(room, 'bin.dat'), Buffer.from([1, 2, 0, 3]));
     writeFileSync(join(outside, 'fora.txt'), 'MARCADOR_FORA');
     mkdirSync(join(outside, 'pasta'));
@@ -263,18 +296,32 @@ describe('GET /api/files/tree e /api/files/raw', () => {
 
   it('.env e variantes: blocked na tree, 403 na raw; .env.example é legível', async () => {
     const t = await env.tree();
-    for (const f of ['.env', '.env.local', 'chave.pem', 'a.key', 'id_rsa', 'cert.p12', 'x.pfx', 'tcr-base.txt']) {
+    for (const f of SECRET_FILES) {
       expect(entry(t, f), f).toMatchObject({ kind: 'file', blocked: true });
       const r = await env.raw(f);
       expect(r.status, f).toBe(403);
       expect(JSON.stringify(r.json)).not.toContain('MARCADOR');
     }
-    expect(entry(t, '.env.example')).toEqual({ name: '.env.example', kind: 'file', size: 7 });
-    expect((await env.raw('.env.example')).json).toEqual({ path: '.env.example', size: 7, text: 'CHAVE=\n' });
+    for (const f of ['.env.example', '.env.sample', '.env.template']) {
+      expect(entry(t, f), f).toEqual({ name: f, kind: 'file', size: 7 });
+      expect((await env.raw(f)).json, f).toEqual({ path: f, size: 7, text: 'CHAVE=\n' });
+    }
     // Qualquer componente do caminho, não só o nome final; maiúscula não escapa.
     expect((await env.raw('sub/.env')).status).toBe(403);
     expect((await env.raw('sub/../.ENV')).status).toBe(403);
     expect((await env.raw('./.env')).status).toBe(403);
+  });
+
+  it('código com secret/token/senha no nome é legível (token.service.ts, RecuperarSenha.js)', async () => {
+    const t = await env.tree();
+    for (const f of READABLE_LOOKALIKES) {
+      expect(entry(t, f), f).toEqual({ name: f, kind: 'file', size: 21 });
+      const r = await env.raw(f);
+      expect(r.status, f).toBe(200);
+      expect(r.json, f).toEqual({ path: f, size: 21, text: 'export const ok = 1;\n' });
+    }
+    // O segredo de verdade, no mesmo diretório, continua fechado.
+    expect((await env.raw('.env')).status).toBe(403);
   });
 
   it('diretório-segredo: aparece blocked e não lista o conteúdo (403), nem os arquivos dentro', async () => {
