@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FURNITURE, TILE, type FurnitureKind, type RoomTheme } from '../../art/api';
-import { BUILDING_H, COL_W, CORRIDOR_Y, SOUTH_Y } from '../constants';
+import { BUILDING_H, COL_W, CORE_COLS, CORRIDOR_Y, SOUTH_Y } from '../constants';
 import { assembleBuilding, coreAreas } from './building';
 import { columnsFor, slotAt, slotColumn, slotRect, slotSide } from './geometry';
 import { layoutProjectRoom, roomVariant } from './room';
@@ -23,31 +23,31 @@ function roomsFor(slots: number[]): AreaLayout[] {
 
 describe('mapeamento de slots', () => {
   it('coluna = núcleo + floor(slot/2); par = norte, ímpar = sul', () => {
-    expect(slotColumn(0)).toBe(2);
-    expect(slotColumn(1)).toBe(2);
-    expect(slotColumn(2)).toBe(3);
-    expect(slotColumn(7)).toBe(5);
+    expect(slotColumn(0)).toBe(CORE_COLS);
+    expect(slotColumn(1)).toBe(CORE_COLS);
+    expect(slotColumn(2)).toBe(CORE_COLS + 1);
+    expect(slotColumn(7)).toBe(CORE_COLS + 3);
     expect(slotSide(0)).toBe('north');
     expect(slotSide(1)).toBe('south');
     expect(slotSide(6)).toBe('north');
-    expect(slotAt(3, 'south')).toBe(3);
+    expect(slotAt(CORE_COLS + 1, 'south')).toBe(3);
     expect(slotAt(slotColumn(9), slotSide(9))).toBe(9);
   });
 
   it('retângulos das salas não se sobrepõem e respeitam o corredor', () => {
     const a = slotRect(0);
     const b = slotRect(1);
-    expect(a).toEqual({ x: 2 * COL_W, y: 0, w: COL_W, h: 12 });
+    expect(a).toEqual({ x: CORE_COLS * COL_W, y: 0, w: COL_W, h: 12 });
     expect(b.y).toBe(SOUTH_Y);
     expect(a.y + a.h).toBe(CORRIDOR_Y);
     expect(b.y + b.h).toBe(BUILDING_H);
   });
 
   it('largura do prédio: núcleo + maior coluna usada + 1 (mínimo 1 coluna de projeto)', () => {
-    expect(columnsFor([])).toBe(3);
-    expect(columnsFor([0, 1])).toBe(3);
-    expect(columnsFor([5])).toBe(5);
-    expect(columnsFor([2, 11])).toBe(8);
+    expect(columnsFor([])).toBe(CORE_COLS + 1);
+    expect(columnsFor([0, 1])).toBe(CORE_COLS + 1);
+    expect(columnsFor([5])).toBe(CORE_COLS + 3);
+    expect(columnsFor([2, 11])).toBe(CORE_COLS + 6);
   });
 });
 
@@ -56,13 +56,15 @@ describe('layout do prédio', () => {
   const rooms = roomsFor(slots);
   const cols = columnsFor(slots);
   const b = assembleBuilding(cols, rooms);
-  const reception = coreAreas().find((a) => a.id === RECEPTION_ID)!;
-  const elevator = reception.spots.find((s) => s.kind === 'elevator')!;
-  const reach = b.grid.reachableFrom(elevator.tx, elevator.ty);
+  // fork sem recepção: o prédio começa no corredor (o elevador só existe com o núcleo)
+  const reception = coreAreas().find((a) => a.id === RECEPTION_ID);
+  const elevator = reception?.spots.find((s) => s.kind === 'elevator');
+  const start = elevator ? { tx: elevator.tx, ty: elevator.ty } : { tx: b.corridor.rect.x + 1, ty: b.corridor.rect.y + 1 };
+  const reach = b.grid.reachableFrom(start.tx, start.ty);
   const reachable = (x: number, y: number) => reach[y * b.grid.w + x] === 1;
 
-  it('há dois elevadores com tiles de aproximação caminháveis', () => {
-    const elevators = reception.spots.filter((s) => s.kind === 'elevator');
+  it.skipIf(!reception)('há dois elevadores com tiles de aproximação caminháveis', () => {
+    const elevators = reception!.spots.filter((s) => s.kind === 'elevator');
     expect(elevators).toHaveLength(2);
     for (const e of elevators) expect(b.grid.walkable(e.tx, e.ty)).toBe(true);
   });
@@ -231,8 +233,8 @@ describe('itens de parede', () => {
   });
 
   it('passagens nas faces das paredes têm batente', () => {
-    const restroom = coreAreas().find((a) => a.kind === 'restroom')!;
-    expect(restroom.wallItems.some((w) => w.kind === 'door_frame')).toBe(true);
+    const restroom = coreAreas().find((a) => a.kind === 'restroom');
+    if (restroom) expect(restroom.wallItems.some((w) => w.kind === 'door_frame')).toBe(true);
     for (const room of roomsFor([1, 3, 7])) expect(room.wallItems.some((w) => w.kind === 'door_frame'), room.id).toBe(true);
   });
 });

@@ -428,6 +428,19 @@ export class Sim {
     ch.shellDoneAt = latestShellDone(a)?.at ?? 0;
     this.chars.set(a.id, ch);
     if (first) return ch;
+    // sala fixa: residente e sessão trocam de turno na própria mesa, sem ninguém andar até a porta
+    if (a.resident || (a.kind === 'main' && this.takeOverDesk(ch))) {
+      if (a.resident) this.takeOverDesk(ch);
+      this.seatNow(ch);
+      return ch;
+    }
+    if (!this.elevators.length) {
+      // sem recepção: chega pela porta da sala
+      const t = this.doorwayTile(ch.roomId) ?? this.lobbyTile(ch);
+      ch.placeAtTile(t.x, t.y);
+      ch.dir = 'down';
+      return ch;
+    }
     // chegada pelo elevador
     const el = this.pickElevator(ch);
     const spot = this.spots.get(el.spotId)!;
@@ -506,6 +519,41 @@ export class Sim {
     if (!room || !room.present) return;
     const seat = chooseSeat(room.layout.spots, (id) => this.spots.isFree(id, ch.id), ch.info.kind);
     if (seat && this.spots.reserve(seat.id, ch.id)) ch.homeSpot = seat.id;
+  }
+
+  /**
+   * Troca de turno numa sala fixa: tira de cena, na hora, o outro lado — o residente quando a sessão chega, ou a
+   * sessão que está saindo quando o residente volta. Devolve se houve troca.
+   */
+  private takeOverDesk(ch: Character): boolean {
+    for (const c of this.chars.values()) {
+      if (c === ch || c.gone || c.roomId !== ch.roomId || c.info.kind !== 'main') continue;
+      const other = ch.info.resident ? !c.info.resident && (c.leaving || c.info.status === 'offline') : !!c.info.resident;
+      if (!other) continue;
+      if (c.gathering) this.social.leave(c, this.now);
+      this.spots.releaseAll(c.id);
+      this.chars.delete(c.id);
+      return true;
+    }
+    return false;
+  }
+
+  /** Já sentado na mesa (ou em pé na sala, se lotada), sem caminhar até ela. */
+  private seatNow(ch: Character): void {
+    this.assignHome(ch);
+    const home = this.spots.get(ch.homeSpot);
+    if (home) this.snapTo(ch, home);
+    else this.placeOverflow(ch);
+  }
+
+  /** Ladrilho do corredor em frente à porta da sala: chegada e saída quando o prédio não tem elevador. */
+  private doorwayTile(roomId: string): { x: number; y: number } | null {
+    const door = this.rooms.get(roomId)?.layout.door;
+    if (!door) return null;
+    const c = this.building.corridor.rect;
+    const x = door.x + Math.floor(door.w / 2);
+    const y = door.y < c.y ? c.y : c.y + c.h - 1;
+    return this.building.grid.walkable(x, y) ? { x, y } : null;
   }
 
   private pickElevator(ch: Character): Elevator {
@@ -739,7 +787,7 @@ export class Sim {
   occupants(room: RoomState, except?: string): number {
     let n = 0;
     for (const c of this.chars.values()) {
-      if (c.gone || c.id === except) continue;
+      if (c.gone || c.id === except || c.info.resident) continue;
       if ((c.roomId === room.id && !c.leaving) || inRect(room.layout.rect, c.tx, c.ty)) n++;
     }
     return n;
@@ -748,7 +796,7 @@ export class Sim {
   /** Quantos estão fisicamente dentro do retângulo da sala. */
   private physicallyInside(room: RoomState, except?: string): number {
     let n = 0;
-    for (const c of this.chars.values()) if (!c.gone && c.id !== except && inRect(room.layout.rect, c.tx, c.ty)) n++;
+    for (const c of this.chars.values()) if (!c.gone && !c.info.resident && c.id !== except && inRect(room.layout.rect, c.tx, c.ty)) n++;
     return n;
   }
 
@@ -1183,7 +1231,7 @@ export class Sim {
     if (!ch.homeSpot) return this.planOverflow(ch, room);
     ch.standTile = null;
     // sala apagada: o primeiro a chegar acende a luz
-    if (!room.lightOn && room.phase !== 'dismantling' && !this.switchClaimValid(room)) {
+    if (!room.lightOn && !ch.info.resident && room.phase !== 'dismantling' && !this.switchClaimValid(room)) {
       room.switchClaim = ch.id;
       const sw = room.layout.spots.find((p) => p.kind === 'switch');
       if (sw) {
@@ -1324,7 +1372,12 @@ export class Sim {
   }
 
   private lobbyTile(ch: Character): { x: number; y: number } {
-    const reception = this.building.core.find((a) => a.id === RECEPTION_ID)!;
+    const reception = this.building.core.find((a) => a.id === RECEPTION_ID);
+    if (!reception) {
+      // sem recepção: o começo do corredor
+      const c = this.building.corridor.rect;
+      return { x: c.x + 1, y: c.y + Math.floor(c.h / 2) };
+    }
     const r = reception.rect;
     for (let k = 0; k < 20; k++) {
       const x = r.x + 2 + Math.floor(ch.rng() * 12);
@@ -1380,6 +1433,14 @@ export class Sim {
           { t: 'do', fn: () => room.switchClaim === ch.id && (room.switchClaim = null) },
         );
       }
+    }
+    if (!this.elevators.length) {
+      // sem recepção: sai pela porta da sala
+      const t = this.doorwayTile(ch.roomId);
+      if (t) steps.push({ t: 'go', tx: t.x, ty: t.y });
+      steps.push({ t: 'remove' });
+      ch.queue.push(...steps);
+      return true;
     }
     const el = this.pickElevator(ch);
     const es = this.spots.get(el.spotId)!;
@@ -1718,6 +1779,7 @@ export class Sim {
 
   /** Ocioso há muito tempo (cochila na mesa, nem sempre aceita convite)? Na visita, nunca: o tempo não veio do mundo. */
   longIdle(ch: Character, now: number): boolean {
+    if (ch.info.resident) return true;
     return !this.visit && isLongIdle(ch.info.status, ch.info.statusSince, now);
   }
 

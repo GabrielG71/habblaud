@@ -215,6 +215,9 @@ class AgentView {
   private statusSince: HTMLElement;
   private followBtn: HTMLButtonElement;
   private termBtn: HTMLButtonElement;
+  /** Gestor residente (sala fixa, sem sessão): abre a sessão dele no VS Code pela ponte. */
+  private launchBtn: HTMLButtonElement;
+  private launchLabel: HTMLElement;
   private termLabel: HTMLElement;
   /** Por que o terminal não abre: no celular não há hover para ler o title, então o toque mostra o motivo aqui. */
   private termWhy: HTMLElement;
@@ -321,6 +324,17 @@ class AgentView {
 
     this.termWhy = h('p', { class: 'ui-term-cta__why', hidden: true, attrs: { role: 'status' } });
 
+    const launchIcon = h('span', { class: 'ui-term-cta__icon', attrs: { 'aria-hidden': 'true' } });
+    launchIcon.innerHTML = ICONS.terminal;
+    this.launchLabel = h('span', { class: 'ui-term-cta__label', text: tr('Ligar') });
+    this.launchBtn = h(
+      'button',
+      { class: 'ui-btn ui-term-cta', type: 'button', hidden: true, title: tr('Abre a sessão deste gestor num terminal do VS Code'), on: { click: () => this.launch() } },
+      launchIcon,
+      this.launchLabel,
+      h('span', { class: 'ui-term-cta__ro', text: tr('no VS Code') }),
+    );
+
     this.alertText = h('p', { class: 'ui-alert__text' });
     this.alertQuestions = h('div', { class: 'ui-ask', hidden: true });
     this.alertAnswerHint = h('p', { class: 'ui-ask__answer-hint', hidden: true, text: tr('Com o plugin habblaud-permissoes (npm run mod:install), dá para responder as perguntas por aqui.') });
@@ -411,6 +425,7 @@ class AgentView {
       this.title,
       this.gone,
       statusRow,
+      this.launchBtn,
       this.termBtn,
       this.termWhy,
       this.alert,
@@ -557,7 +572,7 @@ class AgentView {
     const wait = live ? shellWaitIn(a, this.ctx.store.snapshot?.agents ?? [], now) : null;
     const status = wait ? 'shell' : a.status;
     updateStatusDot(this.dot, status);
-    setText(this.statusText, statusLabel(status));
+    setText(this.statusText, a.resident ? tr('Desligado') : statusLabel(status));
     // Parado num comando longo: o "desde" é o início do comando (o status do servidor continua 'working').
     const since = wait?.foreground ? wait.since : a.statusSince;
     setText(this.statusSince, relativeTime(since, now));
@@ -566,6 +581,11 @@ class AgentView {
     setAttr(this.followBtn, 'aria-pressed', String(following));
     this.followBtn.classList.toggle('is-on', following);
     this.renderTerminalButton(!!live);
+    setHidden(this.launchBtn, !a.resident || !a.launch);
+    if (a.resident) {
+      setHidden(this.termBtn, true);
+      setHidden(this.termWhy, true);
+    } else setHidden(this.termBtn, false);
 
     // Alerta.
     const waiting = a.status === 'waiting' && !!live;
@@ -688,6 +708,15 @@ class AgentView {
         ),
       ),
     );
+  }
+
+  /** Liga o gestor residente: a ponte do VS Code abre um terminal integrado rodando `gestor <projeto>`. */
+  private launch(): void {
+    const projeto = this.last?.resident ? this.last.launch : undefined;
+    if (!projeto) return;
+    window.location.href = `vscode://gabriel.habblaud-ponte/abrir?projeto=${encodeURIComponent(projeto)}`;
+    setText(this.launchLabel, tr('Abrindo no VS Code…'));
+    window.setTimeout(() => setText(this.launchLabel, tr('Ligar')), 6_000);
   }
 
   private renderTerminalButton(live: boolean, provider = providerOf(this.last)): void {

@@ -2,6 +2,7 @@
 // simulação exige (semente, vaga, contas, tempos, listas vazias) e cada agente aparece na sala do andar dele, no
 // comportamento do status. Também o modo discreto, o prédio apagado e os patches (status, andar que some, andar novo).
 import { describe, expect, it } from 'vitest';
+import { CORE_COLS } from '../constants';
 import { applyBuildingPatch, officeFromBuilding } from '../../../../shared/world/office-from-world';
 import type { WorldBuildingDetail } from '../../../../shared/world/protocol';
 import { sampleBuildingDetail } from '../../../../shared/world/visit-sample';
@@ -142,7 +143,7 @@ describe('visita a um prédio do mundo no Sim', () => {
     expect(sim.chars.size).toBe(0);
   });
 
-  it('patch: agente que troca de status, andar que some (todos vão embora) e andar novo (construído, com quem chega)', () => {
+  it.skipIf(CORE_COLS === 0)('patch: agente que troca de status, andar que some (todos vão embora) e andar novo (construído, com quem chega)', () => {
     const { sim, clock, snap } = enter(sampleBuildingDetail());
     run(sim, clock, 3);
     const floors = sampleBuildingDetail().floors.filter((f) => f.label !== 'aurora');
@@ -268,7 +269,7 @@ describe('o visitante', () => {
     return { ...v, ch };
   }
 
-  it('chega pelo elevador da recepção, com o crachá de visitante, fora dos agentes (snapshot, vida social, lugares)', () => {
+  it.skipIf(CORE_COLS === 0)('chega pelo elevador da recepção, com o crachá de visitante, fora dos agentes (snapshot, vida social, lugares)', () => {
     const { sim, clock, ch, snap } = withVisitor();
     expect(ch.id).toBe(VISITOR_ID);
     expect(ch.appearance.lanyard).toBe(VISITOR_LANYARD);
@@ -292,7 +293,7 @@ describe('o visitante', () => {
     expect(sim.social.wallets.get(VISITOR_ID)).toBeUndefined();
   });
 
-  it('anda com o teclado e não atravessa parede nem assento; o clique leva por um caminho', () => {
+  it.skipIf(CORE_COLS === 0)('anda com o teclado e não atravessa parede nem assento; o clique leva por um caminho', () => {
     const { sim, clock, ch } = withVisitor();
     const start = { x: ch.x, y: ch.y };
     sim.visitorIntent = { dx: 0, dy: 1, run: false };
@@ -324,7 +325,7 @@ describe('o visitante', () => {
     expect(ch.seated).toBe(false);
   });
 
-  it('sai pelo elevador: entra, some e só então a cena manda o leave; ocupado, não anda nem sai de novo', () => {
+  it.skipIf(CORE_COLS === 0)('sai pelo elevador: entra, some e só então a cena manda o leave; ocupado, não anda nem sai de novo', () => {
     const { sim, clock, ch } = withVisitor();
     sim.visitorIntent = { dx: 1, dy: 1, run: false };
     run(sim, clock, 1);
@@ -343,7 +344,7 @@ describe('o visitante', () => {
     expect([...sim.people()].some((c) => c.id === VISITOR_ID)).toBe(false);
   });
 
-  it('a aba voltou do segundo plano no meio da chegada ou da saída: termina na hora (e a saída acontece)', () => {
+  it.skipIf(CORE_COLS === 0)('a aba voltou do segundo plano no meio da chegada ou da saída: termina na hora (e a saída acontece)', () => {
     const v = visit(sampleBuildingDetail());
     const ch = v.sim.setVisitor(visitorInfo(ME, v.clock.now), v.clock.now)!;
     v.sim.fastForward(v.clock.now);
@@ -357,7 +358,7 @@ describe('o visitante', () => {
 });
 
 describe('stepFree e canStand (puros)', () => {
-  it('sem intenção não anda; diagonal normalizada; desliza na parede por um eixo', () => {
+  it.skipIf(CORE_COLS === 0)('sem intenção não anda; diagonal normalizada; desliza na parede por um eixo', () => {
     const sim = visitSim();
     const grid = sim.building.grid;
     const el = sim.spots.get(sim.elevators[0]!.spotId)!;

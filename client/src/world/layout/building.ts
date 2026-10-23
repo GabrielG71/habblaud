@@ -3,7 +3,6 @@ import { FURNITURE } from '../../art/api';
 import { BUILDING_H, COL_W } from '../constants';
 import { BLOCKED, FREE, SEAT, WalkGrid } from '../path/grid';
 import { furnitureBlocks, furnitureIsSeat } from './builder';
-import { layoutCafe, layoutLounge, layoutReception, layoutRestroom } from './core';
 import { layoutCorridor } from './corridor';
 import { buildingRect } from './geometry';
 import type { AreaLayout, SpotDef, TileRect } from './types';
@@ -20,9 +19,9 @@ export interface BuildingLayout {
 
 let coreCache: AreaLayout[] | null = null;
 
-/** Áreas fixas do núcleo (calculadas uma vez). */
+/** Áreas fixas do núcleo: nenhuma — o prédio é só corredor e salas de projeto (sem recepção, banheiros, copa e lounge). */
 export function coreAreas(): AreaLayout[] {
-  return (coreCache ??= [layoutReception(), layoutRestroom(), layoutCafe(), layoutLounge()]);
+  return (coreCache ??= []);
 }
 
 /** Marca na grade as células caminháveis de uma área, os bloqueios e os assentos. */

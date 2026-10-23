@@ -21,7 +21,8 @@ export function statusLabel(status: AgentStatus): string {
 }
 
 /** Texto da linha de atividade quando o agente ainda não tem nenhuma (ex.: sessão recém-aberta, sem pedido). */
-export function activityFallback(agent: Pick<AgentInfo, 'status' | 'waitingFor'>): string {
+export function activityFallback(agent: Pick<AgentInfo, 'status' | 'waitingFor' | 'resident'>): string {
+  if (agent.resident) return tr('Desligado — clique para ligar');
   switch (agent.status) {
     case 'working':
       return tr('Trabalhando…');
@@ -68,7 +69,7 @@ export function computeCounters(snap: Pick<OfficeSnapshot, 'rooms' | 'agents'> |
   if (!snap) return c;
   c.rooms = snap.rooms.length;
   for (const a of snap.agents) {
-    if (!isPresent(a)) continue;
+    if (!isPresent(a) || a.resident) continue;
     c.agents++;
     const wait = shellWaitIn(a, snap.agents, now);
     if (wait) c.shells += Math.max(1, wait.jobs.length);

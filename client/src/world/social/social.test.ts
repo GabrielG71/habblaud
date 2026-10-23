@@ -1,6 +1,7 @@
 // Integração da vida social com a simulação (sem DOM): rodas que se formam sozinhas, quem é chamado
 // de volta ao trabalho, apostas, moedinhas pelo trabalho e quem espera shell.
 import { describe, expect, it } from 'vitest';
+import { CORE_COLS } from '../constants';
 import type { AgentInfo, OfficeSnapshot, RoomInfo } from '../../../../shared/types';
 import type { Appearance, ArtModule, RoomTheme } from '../../art/api';
 import { DEFAULT_WORLD_OPTIONS } from '../api';
@@ -117,7 +118,7 @@ describe('vida social', () => {
     }
   });
 
-  it('chamado para trabalhar no meio da TV: avisa a turma, sai correndo e os outros continuam', () => {
+  it.skipIf(CORE_COLS === 0)('chamado para trabalhar no meio da TV: avisa a turma, sai correndo e os outros continuam', () => {
     const sim = newSim();
     const clock = { now: T0 };
     const ids = ['ana', 'caio', 'davi'];
@@ -139,7 +140,7 @@ describe('vida social', () => {
     expect(sim.chars.get('ana')!.gathering).toBe(g);
   });
 
-  it('jokenpô valendo: o dinheiro só muda de mãos (soma igual) e o placar fecha', () => {
+  it.skipIf(CORE_COLS === 0)('jokenpô valendo: o dinheiro só muda de mãos (soma igual) e o placar fecha', () => {
     const sim = newSim();
     const clock = { now: T0 };
     sim.applySnapshot(snap(ROOMS, [agent('ana', '/a', 'idle'), agent('caio', '/b', 'idle')]), clock.now);
@@ -164,7 +165,7 @@ describe('vida social', () => {
     for (const s of sim.spots.all()) expect(sim.spots.ownerOf(s.id)?.startsWith('g:') ?? false).toBe(false);
   });
 
-  it('ping-pong até 5: um vence, o placar e o feed registram', () => {
+  it.skipIf(CORE_COLS === 0)('ping-pong até 5: um vence, o placar e o feed registram', () => {
     const sim = newSim();
     const clock = { now: T0 };
     sim.applySnapshot(snap(ROOMS, [agent('ana', '/a', 'idle'), agent('caio', '/b', 'idle')]), clock.now);

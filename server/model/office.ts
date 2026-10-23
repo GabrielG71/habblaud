@@ -29,6 +29,7 @@ import { DemoSimulator } from '../../shared/demo/simulator';
 import { describeGitHubEvent, githubEventKey, RoomEffects, type GitHubEvent } from '../../shared/github';
 import { hash32 } from '../../shared/hash';
 import { applyPermission } from '../permissions/registry';
+import type { FixedRoom } from './fixed';
 import type { NameStore, StoredCharacter } from './names';
 import { normalizeCwd, roomDisplayNames, SlotAllocator } from './rooms';
 import { tr } from '../../shared/i18n';
@@ -80,6 +81,8 @@ export interface OfficeDeps {
   ptys?: () => { status: PtyStatus; list: PtyInfo[] };
   /** Habblaud World (WorldService.meta; ver OfficeSnapshot.meta.world). */
   world?: () => WorldMeta;
+  /** Salas fixas (model/fixed.ts): sempre no prédio, com o personagem da sala sentado quando não há sessão. */
+  fixedRooms?: () => readonly FixedRoom[];
   now?: () => number;
 }
 
@@ -953,13 +956,16 @@ export class Office {
 
   private build(): OfficeSnapshot {
     const now = this.now();
-    const entries = new Map(this.rooms);
+    const fixed = this.deps.fixedRooms?.() ?? [];
+    // salas fixas primeiro: pegam as primeiras vagas, na ordem do escritorio.json
+    const entries = new Map(fixed.map((f) => [f.id, this.rooms.get(f.id) ?? { path: f.path, createdAt: this.deps.startedAt }]));
+    for (const [id, r] of this.rooms) entries.set(id, r);
     for (const r of this.demoSnap?.rooms ?? []) entries.set(r.id, { path: r.path, createdAt: r.createdAt });
     this.slots.sync(entries.keys(), now);
     const rooms: RoomInfo[] = [...entries]
       .map(([id, r]) => ({
         id,
-        name: this.roomName(id),
+        name: this.rooms.has(id) ? this.roomName(id) : (this.deps.roomAlias?.(r.path) ?? this.roomName(id)),
         path: r.path,
         slot: this.slots.slotOf(id) ?? 0,
         seed: hash32(id),
@@ -990,7 +996,7 @@ export class Office {
       rev: this.rev,
       serverTime: now,
       rooms,
-      agents: [...real, ...demoAgents].map(trim),
+      agents: [...real, ...this.residents(fixed, real), ...demoAgents].map(trim),
       accounts: [...this.deps.accounts(sessions), ...(this.demoSnap?.accounts ?? [])],
       ...(ptys ? { ptys: ptys.list } : {}),
       meta: {
@@ -1006,6 +1012,39 @@ export class Office {
         ...(this.deps.world ? { world: this.deps.world() } : {}),
       },
     };
+  }
+
+  /** O personagem de cada sala fixa sem agente principal presente: sentado na mesa, desligado (AgentInfo.resident). */
+  private residents(fixed: readonly FixedRoom[], real: readonly AgentInfo[]): AgentInfo[] {
+    const busy = new Set(real.filter((a) => a.kind === 'main' && a.status !== 'offline').map((a) => a.roomId));
+    const at = this.deps.startedAt;
+    return fixed
+      .filter((f) => !busy.has(f.id))
+      .map((f) => {
+        const c = this.deps.names.character(f.id);
+        return {
+          id: `residente:${f.id}`,
+          kind: 'main',
+          roomId: f.id,
+          name: c?.name ?? tr('Gestor'),
+          look: c?.look ?? 'm',
+          role: tr('Desligado'),
+          sessionId: '',
+          account: '',
+          status: 'idle',
+          recent: [],
+          tasks: [],
+          startedAt: at,
+          lastEventAt: at,
+          statusSince: at,
+          stats: zeroStats(),
+          seed: c?.seed ?? hash32(f.id),
+          ...(c?.parts ? { parts: { ...c.parts } } : {}),
+          ...(c ? { custom: true as const } : {}),
+          resident: true as const,
+          ...(f.gestor ? { launch: f.gestor } : {}),
+        };
+      });
   }
 
   /**

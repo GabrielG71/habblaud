@@ -186,6 +186,10 @@ export interface AgentInfo {
    * e perguntou pela caixa de entrada há pouco. Ver POST /api/messages.
    */
   canMessage?: boolean;
+  /** Personagem de uma sala fixa (<dataDir>/escritorio.json) sem sessão aberta: fica sentado, desligado. */
+  resident?: true;
+  /** Projeto que o "Ligar" abre (sala fixa com `gestor`): vira o link vscode:// da ponte. */
+  launch?: string;
 }
 
 export interface RoomInfo {
