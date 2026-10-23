@@ -220,7 +220,7 @@ class AgentView {
   private launchLabel: HTMLElement;
   /** Segunda opção do residente: liga a sessão aqui, no terminal do Habblaud (pty). */
   private launchHereBtn: HTMLButtonElement;
-  /** Gestor residente: abre a janela de arquivos da sala (a sala fixa dele). */
+  /** Abre a janela de arquivos da sala do agente (residente ou sessão ativa; só sala fixa responde). */
   private filesBtn: HTMLButtonElement;
   private launchMsg: HTMLElement;
   private termLabel: HTMLElement;
@@ -608,7 +608,7 @@ class AgentView {
     this.renderTerminalButton(!!live);
     setHidden(this.launchBtn, !a.resident || !a.launch);
     setHidden(this.launchHereBtn, !a.resident || !this.pty.enabled);
-    setHidden(this.filesBtn, !a.resident);
+    setHidden(this.filesBtn, !a.roomId);
     const filesOpen = this.files.roomId === a.roomId;
     setAttr(this.filesBtn, 'aria-pressed', String(filesOpen));
     this.filesBtn.classList.toggle('is-on', filesOpen);
