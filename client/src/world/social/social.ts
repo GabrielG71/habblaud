@@ -7,7 +7,7 @@ import type { AgentInfo } from '../../../../shared/types';
 import type { Dir, HeldItem, Pose } from '../../art/api';
 import type { AgentSocial, SocialEvent } from '../api';
 import { mulberry32 } from '../../../../shared/hash';
-import { TILE } from '../constants';
+import { TILE, VIDA_SOCIAL } from '../constants';
 import { CAFE_ID, LOUNGE_ID, RECEPTION_ID, RESTROOM_ID } from '../layout/core';
 import type { SpotDef } from '../layout/types';
 import { FREE } from '../path/grid';
@@ -105,6 +105,7 @@ export class Social {
    * própria mesa, sem nada planejado. Quem cochila de tão ocioso pode ser acordado por um convite.
    */
   canJoin(c: Character, now: number): boolean {
+    if (!VIDA_SOCIAL) return false;
     if (c.gone || c.leaving || c.arriving || c.inside || c.gathering) return false;
     if (c.info.resident) return false;
     if (c.mode !== 'idle' && c.mode !== 'shell') return false;

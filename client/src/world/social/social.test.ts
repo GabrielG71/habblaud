@@ -1,7 +1,7 @@
 // Integração da vida social com a simulação (sem DOM): rodas que se formam sozinhas, quem é chamado
 // de volta ao trabalho, apostas, moedinhas pelo trabalho e quem espera shell.
 import { describe, expect, it } from 'vitest';
-import { CORE_COLS } from '../constants';
+import { CORE_COLS, VIDA_SOCIAL } from '../constants';
 import type { AgentInfo, OfficeSnapshot, RoomInfo } from '../../../../shared/types';
 import type { Appearance, ArtModule, RoomTheme } from '../../art/api';
 import { DEFAULT_WORLD_OPTIONS } from '../api';
@@ -93,7 +93,7 @@ function newSim(): Sim {
 
 const ROOMS = [room('/a', 0), room('/b', 1)];
 
-describe('vida social', () => {
+describe.skipIf(!VIDA_SOCIAL)('vida social', () => {
   it('dois ociosos se juntam numa roda sozinhos, sem ninguém forçar', () => {
     const sim = newSim();
     const clock = { now: T0 };

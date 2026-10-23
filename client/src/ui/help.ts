@@ -131,7 +131,6 @@ export class HelpDialog {
         h('section', {}, h('h3', { text: 'Status' }), statusList),
         h('section', {}, h('h3', { text: tr('Atividades') }), iconList),
         this.shellSection(),
-        this.socialSection(),
         this.githubSection(),
         h(
           'section',

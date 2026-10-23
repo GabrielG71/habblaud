@@ -11,6 +11,8 @@ export const ROOM_H = 12;
 export const CORRIDOR_H = 5;
 /** Colunas do núcleo (recepção/banheiros e copa/lounge). */
 export const CORE_COLS = 0;
+/** Vida social (rodas dos ociosos, jogos, apostas, carteiras): desligada — cada agente fica na sua mesa. */
+export const VIDA_SOCIAL = false;
 
 export const NORTH_Y = 0;
 export const CORRIDOR_Y = ROOM_H;

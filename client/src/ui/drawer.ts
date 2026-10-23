@@ -44,7 +44,6 @@ import { canRenameRoom } from './roomrename';
 import { accountChipLabel, accountProvider, CODEX_LIVE_HINT, codexApprovalLabel, providerOf } from './provider';
 import { ptyControllable } from './ptyapi';
 import { createAgentRow, updateAgentRow } from './rows';
-import { SocialSection } from './social';
 import { TERMINAL_UNAVAILABLE_HINT, type TerminalControl } from './terminal';
 import { Movable } from './movable';
 import type { PtyControl } from './pty';
@@ -261,7 +260,6 @@ class AgentView {
   /** Quantos itens da linha do tempo aparecem agora. */
   private timelineShown = TIMELINE_STEP;
   private stats: KvList<StatKey>;
-  private social: SocialSection;
   readonly character: CharacterEditor;
   private sessionValue: HTMLElement;
   private linesPlus: HTMLElement;
@@ -373,7 +371,6 @@ class AgentView {
     this.msgSec = section(tr('Mandar mensagem'), this.composer.el);
     // No celular a caixa fica presa no rodapé da gaveta enquanto a conversa rola (styles.css, .ui-sec--msg).
     this.msgSec.el.classList.add('ui-sec--msg');
-    this.social = new SocialSection(ctx);
     this.perm = new PermissionCard(ctx);
 
     this.tasksBar = createProgress(tr('Progresso das tarefas'));
@@ -434,7 +431,6 @@ class AgentView {
       this.shellsSec.el,
       nowSec.el,
       this.msgSec.el,
-      this.social.el,
       this.tasksSec.el,
       this.teamSec.el,
       this.timelineSec.el,
@@ -637,10 +633,6 @@ class AgentView {
 
     // Mandar mensagem: só para principais presentes (com o recurso ligado e a página local; sem o plugin, a dica).
     setHidden(this.msgSec.el, this.composer.render(live, this.id) === 'off');
-
-    // Vida social (personalidade, carteira, rodas): só de quem está no escritório.
-    if (live) this.social.render(a.id, now);
-    else setHidden(this.social.el, true);
 
     // Tarefas.
     const tp = taskProgress(a.tasks);
