@@ -73,6 +73,8 @@ festa) ou 10 min. Push só avisa. O mesmo CI visto de novo em 2 min não repete 
 | `DELETE /api/agents/:id/character` | "Voltar ao sorteio": apaga o personagem da sala; `200 {ok}` ou `404`; só com acesso local |
 | `GET /api/sessions/recent` | `RecentSessionsResponse`: sessões dos últimos 7 dias de todas as contas (até 150); mesma trava do terminal |
 | `GET /api/sessions/:conta/:sessionId/terminal` | SSE da conversa de uma sessão do histórico (mesmo protocolo do terminal); mesma trava |
+| `GET /api/files/tree?room=<id>&path=<rel>` | explorador das salas fixas (somente leitura, `files/browse.ts`): `{room, path, entries:[{name, kind: dir\|file\|link, size?, blocked?}], truncated}`, pastas primeiro, até 2000 entradas; `.git` omitido; segredo (`.env`, chaves, `.ssh`...) vem com `blocked`; `400` (caminho inválido), `403` (fora da sala, segredo, porta remota, guarda), `404`, `405`; mesma trava do terminal e nunca pela porta remota |
+| `GET /api/files/raw?room=<id>&path=<rel>` | texto de um arquivo da sala: `{path, size, text}`, `{path, size, binary: true}` (NUL nos primeiros 8 KB) ou `{path, size, tooLarge: true}` (acima de 1 MB); mesmos erros e trava; a sala é sempre o id de uma sala fixa, nunca um caminho do cliente |
 | `GET /api/stats?day=AAAA-MM-DD&tz=<IANA>&source=real\|demo` | `DayStatsResponse` do "Meu dia" (ver abaixo); padrões: hoje, fuso do servidor, demo se ligado e o dia é hoje |
 | `GET /api/stats/days?tz=<IANA>` | `StatsDaysResponse`: dias com dados reais (e do demo, se ligado), mais recente primeiro |
 | `GET /api/timeline/days` | `{recording, days:[{day, bytes, from, to}]}`: dias gravados para o timelapse, do mais recente ao mais antigo |
@@ -543,7 +545,7 @@ O repositório é também um marketplace de plugins do Claude Code (`.claude-plu
 - `accounts/` — detecção de contas (`detect.ts`, também usado pelo `docker-up`), uso (`usage.ts`), tap de statusline (`statusline.ts`), serviço (`service.ts`).
 - `sources/` — registro de sessões, leitura incremental (`tail.ts`), parser de transcripts (atividades em `transcript.ts`; conversa do terminal em `terminal.ts`; eventos do GitHub em `github.ts`), subagentes, o histórico de sessões (`history.ts`) e o orquestrador (`watcher.ts`).
 - `model/` — escritório (`office.ts`), salas/slots (`rooms.ts`), nomes persistidos (`names.ts`).
-- `http/` — proteções de borda (`guard.ts`), rotas (`app.ts`), SSE (`sse.ts`), terminal (`terminal.ts`) e o histórico dele (`sessions.ts`), timelapse (`timeline.ts`), Meu dia (`stats.ts`), estáticos (`static.ts`).
+- `http/` — proteções de borda (`guard.ts`), rotas (`app.ts`), SSE (`sse.ts`), terminal (`terminal.ts`) e o histórico dele (`sessions.ts`), explorador de arquivos das salas fixas (`files.ts`, lógica em `files/browse.ts`), timelapse (`timeline.ts`), Meu dia (`stats.ts`), estáticos (`static.ts`).
 - `history/` — gravador da linha do tempo do timelapse (`timeline.ts`) e as estatísticas do Meu dia: amostragem, persistência e retenção (`daystats.ts`; o acumulador puro fica em `shared/daystats.ts`).
 - `permissions/` — responder pelo escritório (permissões e perguntas): registro dos pedidos (`registry.ts`), rotas (`http.ts`) e a busca da chamada no transcript (`transcript.ts`).
 - `messages/` — mensagens pelo escritório: fila, presença das sessões e prazos (`registry.ts`) e rotas (`http.ts`).

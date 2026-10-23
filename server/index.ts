@@ -23,6 +23,7 @@ import { Office } from './model/office';
 import { gestorArgs, loadFixedRooms } from './model/fixed';
 import { RoomAliases } from './model/room-aliases';
 import { createPtyRoutes } from './http/pty';
+import { createFilesRoutes } from './http/files';
 import { claudeBinFrom, isExecutableFile, loadPty, PtyManager, type ScreenFactory, type SpawnPty } from './pty/manager';
 import { loadHeadlessScreen } from './pty/screen';
 import { openMainAgent, SessionHistory } from './sources/history';
@@ -364,6 +365,7 @@ const api = createApiHandler({
   permissions: permissions ? createPermissionRoutes(permissions) : undefined,
   messages: messages ? createMessageRoutes(messages) : undefined,
   pty: ptys ? createPtyRoutes(ptys) : undefined,
+  browse: createFilesRoutes(() => fixedRooms),
   spawn,
   attachments,
   dictation,

@@ -52,6 +52,8 @@ export interface ApiDeps {
    * terminal e HABBLAUD_MENSAGENS); a trava do Host local é conferida aqui antes de chamá-las.
    */
   messages?: (req: IncomingMessage, res: ServerResponse, path: string) => void;
+  /** Explorador de arquivos das salas fixas (GET /api/files/tree|raw, http/files.ts); só leitura. */
+  browse?: (req: IncomingMessage, res: ServerResponse, url: URL) => void;
   /**
    * Terminal interativo e ações nos agentes (/api/pty/*, POST /api/agents/:id/stop|takeover; http/pty.ts).
    * Ausente = desligado (sem HABBLAUD_PTY=1, Docker, sem node-pty ou sem bind local).
@@ -449,6 +451,14 @@ export function createApiHandler(deps: ApiDeps): (req: IncomingMessage, res: Ser
       } else {
         deps.permissions(req, res, path);
       }
+      return true;
+    }
+    if (path === '/api/files/tree' || path === '/api/files/raw') {
+      // Lê arquivos do computador (salas fixas, somente leitura): nunca pela porta remota; a trava do Host e da Origem
+      // fica em http/files.ts.
+      if (isRemote(req)) sendJson(res, 403, { error: tr('os arquivos da sala só podem ser vistos no próprio computador') });
+      else if (!deps.browse) sendJson(res, 404, { error: tr('arquivos da sala desligados') });
+      else deps.browse(req, res, url);
       return true;
     }
     if (path === '/api/pty' || path.startsWith('/api/pty/') || AGENT_ACTION_ROUTE.test(path)) {

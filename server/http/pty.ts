@@ -10,37 +10,24 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { PtyError, type PtyManager } from '../pty/manager';
 import { HttpError, readJson, sendJson } from './app';
-import { isLoopbackHost } from './guard';
+import { localRequestFault } from './guard';
 import { tr } from '../../shared/i18n';
 
 /** /api/agents/:id/(stop|takeover) (ids nunca contêm '/'). */
 const AGENT_ACTION_ROUTE = /^\/api\/agents\/([^/]+)\/(stop|takeover)$/;
 
-function isLoopbackAddress(addr: string | undefined): boolean {
-  if (!addr) return false;
-  const a = addr.startsWith('::ffff:') ? addr.slice(7) : addr;
-  return a === '::1' || a.startsWith('127.');
-}
-
 /** Motivo da recusa, ou null. */
 export function ptyRequestProblem(req: IncomingMessage): string | null {
-  if (!isLoopbackAddress(req.socket.remoteAddress)) return tr('o terminal interativo só pode ser usado no próprio computador');
-  const host = req.headers.host;
-  if (!isLoopbackHost(host)) return tr('abra o Habblaud por http://localhost para usar o terminal interativo');
-  const origin = req.headers.origin;
-  if (typeof origin === 'string') {
-    let same = false;
-    try {
-      same = new URL(origin).host.toLowerCase() === String(host).trim().toLowerCase();
-    } catch {
-      same = false;
-    }
-    if (!same) return tr('origem não permitida para o terminal interativo');
+  switch (localRequestFault(req)) {
+    case 'address':
+      return tr('o terminal interativo só pode ser usado no próprio computador');
+    case 'host':
+      return tr('abra o Habblaud por http://localhost para usar o terminal interativo');
+    case 'origin':
+      return tr('origem não permitida para o terminal interativo');
+    default:
+      return null;
   }
-  // Navegadores marcam pedidos de outro site (ou de outra porta do localhost = "same-site").
-  const site = req.headers['sec-fetch-site'];
-  if (site === 'cross-site' || site === 'same-site') return tr('origem não permitida para o terminal interativo');
-  return null;
 }
 
 export function createPtyRoutes(ptys: PtyManager): (req: IncomingMessage, res: ServerResponse, path: string) => void {

@@ -10,6 +10,13 @@ do meio (0.**3**.0).
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Explorador de arquivos das salas fixas (API, somente leitura):** `GET /api/files/tree` lista as pastas e
+  `GET /api/files/raw` devolve o texto dos arquivos de uma sala fixa. O acesso fica dentro da pasta da sala (links que
+  saem dela são recusados), segredos (`.env`, chaves, `.ssh`...) aparecem como bloqueados e nunca são lidos, e só
+  vale pelo próprio computador, como o terminal. Ainda sem tela.
+
 ## [1.0.3] - 2026-10-16
 
 ### Corrigido

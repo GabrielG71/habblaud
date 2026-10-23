@@ -56,6 +56,37 @@ export function isLoopbackHost(host: string | undefined): boolean {
   return !!name && isLoopbackName(name);
 }
 
+/** Endereço de quem conectou é o loopback (IPv4, IPv6 ou IPv4 mapeado)? */
+export function isLoopbackAddress(addr: string | undefined): boolean {
+  if (!addr) return false;
+  const a = addr.startsWith('::ffff:') ? addr.slice(7) : addr;
+  return a === '::1' || a.startsWith('127.');
+}
+
+/**
+ * A trava dos recursos "só pelo próprio computador" (terminal interativo, explorador de arquivos): socket loopback,
+ * Host loopback e Origin da mesma origem; pedido que o navegador marca como de outro site (ou de outra porta do
+ * localhost = "same-site") também cai. Devolve o que reprovou, ou null; cada rota escolhe a mensagem.
+ */
+export function localRequestFault(req: IncomingMessage): 'address' | 'host' | 'origin' | null {
+  if (!isLoopbackAddress(req.socket.remoteAddress)) return 'address';
+  const host = req.headers.host;
+  if (!isLoopbackHost(host)) return 'host';
+  const origin = req.headers.origin;
+  if (typeof origin === 'string') {
+    let same = false;
+    try {
+      same = new URL(origin).host.toLowerCase() === String(host).trim().toLowerCase();
+    } catch {
+      same = false;
+    }
+    if (!same) return 'origin';
+  }
+  const site = req.headers['sec-fetch-site'];
+  if (site === 'cross-site' || site === 'same-site') return 'origin';
+  return null;
+}
+
 /**
  * Host aceito? IP literal (não há DNS envolvido, logo não há rebinding), `localhost`/`*.localhost`
  * (os navegadores resolvem sempre para o loopback) ou um nome de HABBLAUD_ALLOWED_HOSTS.

@@ -2194,6 +2194,14 @@ export const FR: Readonly<Record<string, string>> = {
   // server/http/app.ts
   "terminal interativo desligado (veja o log do servidor)": "terminal interactif désactivé (voir le journal du serveur)",
 
+  // server/http/files.ts, server/files/browse.ts
+  "os arquivos da sala só podem ser vistos no próprio computador": "les fichiers de la salle ne peuvent être vus que sur l'ordinateur lui-même",
+  "abra o Habblaud por http://localhost para ver os arquivos da sala": "ouvrez Habblaud sur http://localhost pour voir les fichiers de la salle",
+  "origem não permitida para os arquivos da sala": "origine non autorisée pour les fichiers de la salle",
+  "arquivos da sala desligados": "fichiers de la salle désactivés",
+  "não encontrado": "introuvable",
+  "fora da sala": "hors de la salle",
+
   // server/http/pty.ts
   "o terminal interativo só pode ser usado no próprio computador": "le terminal interactif ne peut être utilisé que sur l'ordinateur lui-même",
   "abra o Habblaud por http://localhost para usar o terminal interativo": "ouvrez Habblaud via http://localhost pour utiliser le terminal interactif",

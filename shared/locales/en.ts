@@ -1654,6 +1654,14 @@ export const EN: Readonly<Record<string, string>> = {
   "Origem não permitida.": "Origin not allowed.",
   "Envie o corpo como JSON (Content-Type: application/json).": "Send the body as JSON (Content-Type: application/json).",
 
+  // server/http/files.ts, server/files/browse.ts
+  "os arquivos da sala só podem ser vistos no próprio computador": "the room's files can only be viewed on the computer running Habblaud",
+  "abra o Habblaud por http://localhost para ver os arquivos da sala": "open Habblaud at http://localhost to view the room's files",
+  "origem não permitida para os arquivos da sala": "origin not allowed for the room's files",
+  "arquivos da sala desligados": "room files turned off",
+  "não encontrado": "not found",
+  "fora da sala": "outside the room",
+
   // server/http/pty.ts
   "o terminal interativo só pode ser usado no próprio computador": "the interactive terminal can only be used on the computer running Habblaud",
   "abra o Habblaud por http://localhost para usar o terminal interativo": "open Habblaud at http://localhost to use the interactive terminal",
