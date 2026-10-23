@@ -71,6 +71,8 @@ export interface PtyManagerOptions {
   /** Por que o recurso está desligado (quando `spawn` é null). */
   disabledReason?: string;
   claudeBin: string;
+  /** Argumentos a mais para o Claude Code aberto numa pasta (ex.: o gestor da sala fixa: nome e briefing). */
+  extraArgs?: (cwd: string) => string[];
   accounts: () => PtyAccount[];
   agent: (id: string) => PtyAgentRef | undefined;
   onChange: () => void;
@@ -403,7 +405,7 @@ export class PtyManager {
 
     let proc: PtyProcess;
     try {
-      const args = p.resume ? ['--resume', p.resume] : [];
+      const args = [...(p.resume ? ['--resume', p.resume] : []), ...(this.opts.extraArgs?.(cwd) ?? [])];
       proc = spawn(this.opts.claudeBin, args, { cwd, cols, rows, env });
     } catch (err) {
       throw new PtyError(500, tr('não consegui abrir o Claude Code: {0}', [errMsg(err)]));

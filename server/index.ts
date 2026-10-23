@@ -20,7 +20,7 @@ import { describeStateMigration, legacyEnvWarning, migrateLegacyStateDir } from 
 import { errMsg, log } from './log';
 import { NameStore } from './model/names';
 import { Office } from './model/office';
-import { loadFixedRooms } from './model/fixed';
+import { gestorArgs, loadFixedRooms } from './model/fixed';
 import { RoomAliases } from './model/room-aliases';
 import { createPtyRoutes } from './http/pty';
 import { claudeBinFrom, isExecutableFile, loadPty, PtyManager, type ScreenFactory, type SpawnPty } from './pty/manager';
@@ -308,6 +308,7 @@ const ptys = spawnPty
   ? new PtyManager({
       spawn: spawnPty,
       claudeBin: claudeBin ?? 'claude',
+      extraArgs: (cwd) => gestorArgs(fixedRooms, cwd),
       accounts: () => accounts.entries().map((a) => ({ id: a.id, dir: a.dir, isDefault: isDefaultDir(a.dir, config.home) })),
       agent: (id) => {
         const a = office.get(id);

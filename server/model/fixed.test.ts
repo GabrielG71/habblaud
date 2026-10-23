@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseFixedRooms } from './fixed';
+import { gestorArgs, parseFixedRooms } from './fixed';
 import { NameStore } from './names';
 import { Office } from './office';
 
@@ -42,5 +42,21 @@ describe('salas fixas', () => {
     expect(snap.agents.filter((a) => a.roomId === '/p/pdv').map((a) => [a.id, a.name, !!a.resident])).toEqual([['acc:1', 'Gestor PDV', false]]);
     // a sala fixa continua na mesma vaga
     expect(snap.rooms.find((r) => r.id === '/p/pdv')!.slot).toBe(0);
+  });
+
+  it('o terminal do Habblaud abre o Claude Code da sala fixa com o nome e o briefing do gestor', () => {
+    const rooms = parseFixedRooms({
+      salas: [
+        { path: '/p/pdv', nome: 'Gestor PDV', prompt: import.meta.filename.replace(/fixed\.test\.ts$/, '../README.md') },
+        { path: '/p/tcr', nome: 'Gestor\nTCR', prompt: 'relativo.md' },
+        { path: '/p/hub', prompt: '/nao/existe.md' },
+      ],
+    });
+    expect(gestorArgs(rooms, '/p/pdv/')).toEqual(['-n', 'Gestor PDV', '--append-system-prompt-file', rooms[0].prompt]);
+    // nome com quebra de linha e briefing relativo são recusados na leitura
+    expect(gestorArgs(rooms, '/p/tcr')).toEqual([]);
+    // briefing que não existe não vai para o claude
+    expect(gestorArgs(rooms, '/p/hub')).toEqual([]);
+    expect(gestorArgs(rooms, '/outra')).toEqual([]);
   });
 });

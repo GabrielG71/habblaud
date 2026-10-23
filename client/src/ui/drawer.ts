@@ -217,6 +217,9 @@ class AgentView {
   /** Gestor residente (sala fixa, sem sessão): abre a sessão dele no VS Code pela ponte. */
   private launchBtn: HTMLButtonElement;
   private launchLabel: HTMLElement;
+  /** Segunda opção do residente: liga a sessão aqui, no terminal do Habblaud (pty). */
+  private launchHereBtn: HTMLButtonElement;
+  private launchMsg: HTMLElement;
   private termLabel: HTMLElement;
   /** Por que o terminal não abre: no celular não há hover para ler o title, então o toque mostra o motivo aqui. */
   private termWhy: HTMLElement;
@@ -332,6 +335,16 @@ class AgentView {
       this.launchLabel,
       h('span', { class: 'ui-term-cta__ro', text: tr('no VS Code') }),
     );
+    const hereIcon = h('span', { class: 'ui-term-cta__icon', attrs: { 'aria-hidden': 'true' } });
+    hereIcon.innerHTML = ICONS.terminal;
+    this.launchHereBtn = h(
+      'button',
+      { class: 'ui-btn ui-term-cta', type: 'button', hidden: true, title: tr('Abre a sessão deste gestor num terminal aqui no Habblaud'), on: { click: () => this.launchHere() } },
+      hereIcon,
+      h('span', { class: 'ui-term-cta__label', text: tr('Ligar aqui') }),
+      h('span', { class: 'ui-term-cta__ro', text: tr('terminal do Habblaud') }),
+    );
+    this.launchMsg = h('p', { class: 'ui-term-cta__why', hidden: true, attrs: { role: 'status' } });
 
     this.alertText = h('p', { class: 'ui-alert__text' });
     this.alertQuestions = h('div', { class: 'ui-ask', hidden: true });
@@ -423,6 +436,8 @@ class AgentView {
       this.gone,
       statusRow,
       this.launchBtn,
+      this.launchHereBtn,
+      this.launchMsg,
       this.termBtn,
       this.termWhy,
       this.alert,
@@ -578,10 +593,10 @@ class AgentView {
     this.followBtn.classList.toggle('is-on', following);
     this.renderTerminalButton(!!live);
     setHidden(this.launchBtn, !a.resident || !a.launch);
-    if (a.resident) {
-      setHidden(this.termBtn, true);
-      setHidden(this.termWhy, true);
-    } else setHidden(this.termBtn, false);
+    setHidden(this.launchHereBtn, !a.resident || !this.pty.enabled);
+    setHidden(this.termBtn, !!a.resident);
+    if (a.resident) setHidden(this.termWhy, true);
+    else setHidden(this.launchMsg, true);
 
     // Alerta.
     const waiting = a.status === 'waiting' && !!live;
@@ -709,6 +724,18 @@ class AgentView {
     window.location.href = `vscode://gabriel.habblaud-ponte/abrir?projeto=${encodeURIComponent(projeto)}`;
     setText(this.launchLabel, tr('Abrindo no VS Code…'));
     window.setTimeout(() => setText(this.launchLabel, tr('Ligar')), 6_000);
+  }
+
+  /** Liga o gestor residente aqui: Claude Code novo na pasta da sala, num terminal do Habblaud (o servidor põe o gestor). */
+  private launchHere(): void {
+    const a = this.last;
+    const room = a?.resident ? this.ctx.store.room(a.roomId) : undefined;
+    if (!room) return;
+    setHidden(this.launchMsg, true);
+    this.pty.newSession(room.path).catch((err: Error) => {
+      setText(this.launchMsg, tr('Não deu: {0}', [err.message]));
+      setHidden(this.launchMsg, false);
+    });
   }
 
   private renderTerminalButton(live: boolean, provider = providerOf(this.last)): void {
