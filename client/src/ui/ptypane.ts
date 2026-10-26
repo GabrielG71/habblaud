@@ -35,6 +35,7 @@ export class PtyPane {
     this.fit = new FitAddon();
     this.term.loadAddon(this.fit);
     this.term.open(this.el);
+    this.term.attachCustomKeyEventHandler((ev) => this.handleKey(ev));
     this.term.onData((d) => this.send(d));
     this.term.onResize(({ cols, rows }) => this.scheduleResize(cols, rows));
     this.ro = new ResizeObserver(() => this.refit());
@@ -94,6 +95,26 @@ export class PtyPane {
       return;
     }
     if (force && before === `${this.term.cols}x${this.term.rows}`) this.scheduleResize(this.term.cols, this.term.rows);
+  }
+
+  /**
+   * Atalhos que o xterm não trata sozinho. Shift+Enter manda ESC+CR (o mesmo do Alt+Enter), que o Claude Code lê
+   * como quebra de linha; Ctrl+Shift+C copia a seleção e não deixa o navegador abrir o DevTools.
+   * Devolver false impede o xterm de processar a tecla.
+   */
+  private handleKey(ev: KeyboardEvent): boolean {
+    if (ev.key === 'Enter' && ev.shiftKey && !ev.ctrlKey && !ev.altKey && !ev.metaKey) {
+      ev.preventDefault();
+      if (ev.type === 'keydown') this.send('\x1b\r');
+      return false;
+    }
+    if (ev.ctrlKey && ev.shiftKey && !ev.altKey && (ev.code === 'KeyC' || ev.key.toLowerCase() === 'c')) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.type === 'keydown' && this.term.hasSelection()) void navigator.clipboard?.writeText(this.term.getSelection()).catch(() => undefined);
+      return false;
+    }
+    return true;
   }
 
   private send(data: string): void {
