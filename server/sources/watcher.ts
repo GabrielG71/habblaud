@@ -597,6 +597,8 @@ export class ClaudeWatcher implements AgentSource {
       case 'notification': {
         const tool = sig.toolUseId ?? (sig.taskId ? t.taskToTool.get(sig.taskId) : undefined);
         if (tool) this.finishTool(t, tool);
+        // Subagente retomado por SendMessage: a nova entrega traz outro tool-use-id, mas o task-id continua sendo o agentId.
+        if (sig.taskId) addBounded(t.finishedAgents, sig.taskId);
         return;
       }
       case 'stopped': {
@@ -632,6 +634,12 @@ export class ClaudeWatcher implements AgentSource {
       if (this.journal(t, file.runId).get(file.agentId)?.done) return true;
     }
     return false;
+  }
+
+  /** Voltou a escrever depois de entregar (retomado por SendMessage): a entrega anterior deixa de valer. */
+  private forgetFinished(t: SessionTracker, file: SubagentFile, meta: SubagentMeta | undefined): void {
+    if (meta?.toolUseId) t.finishedTools.delete(meta.toolUseId);
+    t.finishedAgents.delete(file.agentId);
   }
 
   private journal(t: SessionTracker, runId: string): Map<string, JournalAgent> {
@@ -735,6 +743,7 @@ export class ClaudeWatcher implements AgentSource {
     const office = this.opts.office;
     const now = this.now();
     const meta = readSubagentMeta(file.metaPath);
+    if (mode === 'regrown') this.forgetFinished(t, file, meta);
     const tail = new FileTail(file.path);
     // Arquivo novo e pequeno: seekTail devolve 0 e lê tudo; grande: só o fim.
     const start = tail.seekTail(this.tailBytes);
@@ -820,9 +829,12 @@ export class ClaudeWatcher implements AgentSource {
         if (!r.more) break;
       }
       if (office.isSubDone(sub.id)) {
-        if (fresh > 0 && !this.isFinished(t, sub.file, sub.meta)) {
+        if (fresh > 0) {
           const since = office.get(sub.id)?.statusSince ?? now;
-          if (now - since > 3_000) office.reactivateSub(sub.id);
+          if (now - since > 3_000) {
+            this.forgetFinished(t, sub.file, sub.meta);
+            office.reactivateSub(sub.id);
+          }
         }
         continue;
       }

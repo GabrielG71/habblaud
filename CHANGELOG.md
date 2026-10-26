@@ -28,6 +28,12 @@ do meio (0.**3**.0).
   `secrets.*` e `service-account*.json` ficam bloqueados; código como `token.service.ts` ou `RecuperarSenha.js` passa
   a abrir. As entregas continuam com a regra de antes.
 
+### Corrigido
+
+- **Subagente retomado por mensagem volta à sala.** Quem já tinha entregado e recebia outra mensagem do gestor
+  (`SendMessage`) continuava fora do escritório mesmo trabalhando de novo. Agora, assim que o mesmo subagente volta a
+  escrever, ele reaparece, e some de novo na nova entrega.
+
 ## [1.0.3] - 2026-10-16
 
 ### Corrigido

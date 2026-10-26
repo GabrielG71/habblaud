@@ -255,6 +255,58 @@ describe('ClaudeWatcher', () => {
     expect(c.agent('sess-a:b1')!.status).toBe('done');
   });
 
+  it('subagente em segundo plano retomado por mensagem (SendMessage): volta à sala ao escrever e sai de novo na nova entrega', () => {
+    const mainId = bootWithSession();
+    appendLines(c.transcript('sess-a'), [
+      L.assistant([L.tool('toolu_r', 'Agent', { description: 'Corrigir backend', subagent_type: 'dev-backend', run_in_background: true })]),
+      L.result('toolu_r', 'lançado', { toolUseResult: { isAsync: true, status: 'async_launched', agentId: 'r1' } }),
+    ]);
+    const sub = c.subFile('sess-a', 'r1', { agentType: 'dev-backend', description: 'Corrigir backend', toolUseId: 'toolu_r', requestShape: 'background' }, [
+      L.prompt('Corrija o backend', { agentId: 'r1' }),
+      L.assistant([L.tool('w1', 'Edit', { file_path: '/a/b.ts' })], { agentId: 'r1' }),
+    ]);
+    c.poll();
+    expect(c.agent('sess-a:r1')!.status).toBe('working');
+    // 1ª entrega: a notificação (task-id = agentId) conclui e, passada a graça, ele sai da sala.
+    appendLines(c.transcript('sess-a'), [L.notification('toolu_r', 'completed', 'Entregue', { taskId: 'r1' })]);
+    c.poll();
+    expect(c.agent('sess-a:r1')!.status).toBe('done');
+    c.advance(26_000);
+    c.poll();
+    expect(c.agent('sess-a:r1')).toBeUndefined();
+    c.advance(60_000);
+    c.poll();
+    // Retomada: o MESMO arquivo/agentId volta a crescer, sem arquivo novo.
+    appendLines(sub, [
+      L.prompt('The coordinator sent a message while you were working:\nRodada de correção', { agentId: 'r1' }),
+      L.assistant([L.tool('w2', 'Read', { file_path: '/a/c.ts' })], { agentId: 'r1' }),
+    ]);
+    c.advance(1_000);
+    c.poll();
+    expect(c.agent('sess-a:r1')).toMatchObject({ status: 'working', parentId: mainId });
+    // 2ª entrega: o task-id é o mesmo, o tool-use-id da notificação é outro.
+    appendLines(c.transcript('sess-a'), [L.notification('toolu_r2', 'completed', 'Corrigido', { taskId: 'r1' })]);
+    c.advance(1_000);
+    c.poll();
+    expect(c.agent('sess-a:r1')!.status).toBe('done');
+  });
+
+  it('subagente retomado ainda na graça de saída: volta a trabalhar', () => {
+    bootWithSession();
+    const sub = c.subFile('sess-a', 'g1', { agentType: 'dev-backend', description: 'Corrigir', toolUseId: 'toolu_g', requestShape: 'background' }, [
+      L.prompt('Corrija', { agentId: 'g1' }),
+      L.assistant([L.tool('w1', 'Edit', { file_path: '/a/b.ts' })], { agentId: 'g1' }),
+    ]);
+    c.poll();
+    appendLines(c.transcript('sess-a'), [L.notification('toolu_g', 'completed', 'Entregue', { taskId: 'g1' })]);
+    c.poll();
+    expect(c.agent('sess-a:g1')!.status).toBe('done');
+    appendLines(sub, [L.assistant([L.tool('w2', 'Read', { file_path: '/a/c.ts' })], { agentId: 'g1' })]);
+    c.advance(4_000);
+    c.poll();
+    expect(c.agent('sess-a:g1')!.status).toBe('working');
+  });
+
   it('fork em segundo plano: entra e trabalha (a cópia da chamada do pai não o conclui); a notificação conclui', () => {
     const mainId = bootWithSession();
     appendLines(c.transcript('sess-a'), [

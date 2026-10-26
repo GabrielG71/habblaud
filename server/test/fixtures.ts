@@ -75,8 +75,8 @@ export const L = {
   raw(type: string, fields: Record<string, unknown>): string {
     return JSON.stringify({ type, sessionId: 'sess-teste', ...fields });
   },
-  notification(toolUseId: string, status: string, summary: string, o: LineOpts = {}): string {
-    const text = `<task-notification>\n<task-id>t1</task-id>\n<tool-use-id>${toolUseId}</tool-use-id>\n<status>${status}</status>\n<summary>${summary}</summary>\n</task-notification>`;
+  notification(toolUseId: string, status: string, summary: string, o: LineOpts & { taskId?: string } = {}): string {
+    const text = `<task-notification>\n<task-id>${o.taskId ?? 't1'}</task-id>\n<tool-use-id>${toolUseId}</tool-use-id>\n<status>${status}</status>\n<summary>${summary}</summary>\n</task-notification>`;
     return JSON.stringify({ ...base('user', o), origin: { kind: 'task-notification' }, message: { role: 'user', content: text } });
   },
   /**
