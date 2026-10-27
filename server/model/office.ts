@@ -30,6 +30,7 @@ import { describeGitHubEvent, githubEventKey, RoomEffects, type GitHubEvent } fr
 import { hash32 } from '../../shared/hash';
 import { applyPermission } from '../permissions/registry';
 import type { FixedRoom } from './fixed';
+import { findMember, pickMember, type TeamMember } from '../../shared/team';
 import type { NameStore, StoredCharacter } from './names';
 import { normalizeCwd, roomDisplayNames, SlotAllocator } from './rooms';
 import { tr } from '../../shared/i18n';
@@ -83,6 +84,10 @@ export interface OfficeDeps {
   world?: () => WorldMeta;
   /** Salas fixas (model/fixed.ts): sempre no prédio, com o personagem da sala sentado quando não há sessão. */
   fixedRooms?: () => readonly FixedRoom[];
+  /** Pessoas da equipe (config/equipe.json): cada subagente que entra assume uma. Vazio ou ausente = nomes do pool. */
+  team?: () => readonly TeamMember[];
+  /** Sorteio da pessoa (testes); padrão Math.random. */
+  random?: () => number;
   now?: () => number;
 }
 
@@ -592,7 +597,8 @@ export class Office {
       this.reactivateSub(p.id);
       return true;
     }
-    const person = this.deps.names.assign(p.id, this.takenNames());
+    const member = this.teamMemberFor(p.id);
+    const person = member ?? this.deps.names.assign(p.id, this.takenNames());
     const info: AgentInfo = {
       id: p.id,
       kind: 'sub',
@@ -610,8 +616,10 @@ export class Office {
       lastEventAt: p.startedAt,
       statusSince: now,
       stats: zeroStats(),
-      seed: hash32(p.id),
+      // Pessoa da equipe: a semente vem do nome, para a roupa ser sempre a mesma, em qualquer agente.
+      seed: member ? hash32(`equipe:${member.name}`) : hash32(p.id),
     };
+    if (member && Object.keys(member.parts).length) info.parts = { ...member.parts };
     if (parent.info.provider) info.provider = parent.info.provider;
     if (p.title) info.title = p.title;
     if (p.background) info.background = true;
@@ -1045,6 +1053,22 @@ export class Office {
           ...(f.gestor ? { launch: f.gestor } : {}),
         };
       });
+  }
+
+  /**
+   * Pessoa da equipe de um subagente: a que ele já tinha (names.json; vale também quando um subagente retomado volta à
+   * sala), se continua livre; senão uma sorteada entre as que não estão no escritório (todas ocupadas: repete).
+   * Sem equipe configurada devolve undefined, e vale o sorteio do pool.
+   */
+  private teamMemberFor(id: string): TeamMember | undefined {
+    const team = this.deps.team?.() ?? [];
+    if (!team.length) return undefined;
+    const taken = this.takenNames(id);
+    const stored = this.deps.names.get(id);
+    const kept = stored ? findMember(team, stored.name) : undefined;
+    const member = kept && !taken.has(kept.name) ? kept : pickMember(team, taken, this.deps.random);
+    this.deps.names.remember(id, { name: member.name, look: member.look });
+    return member;
   }
 
   /**

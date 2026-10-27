@@ -12,6 +12,11 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Equipe do escritório:** cada subagente que entra na sala assume uma pessoa de `config/equipe.json` (nome e avatar
+  montado com pele, cabelo, barba, óculos e boné). O sorteio não repete pessoa enquanto houver alguém livre, a pessoa
+  fica a mesma enquanto o agente existir (inclusive quando ele é retomado por `SendMessage`) e a função continua no
+  selo ao lado do nome. O gestor não entra no sorteio. O arquivo fica fora do git; `config/equipe.example.json` é o
+  modelo, e `HABBLAUD_TEAM_FILE` troca o caminho. Sem o arquivo, os nomes e avatares de antes continuam.
 - **Explorador de arquivos das salas fixas (API, somente leitura):** `GET /api/files/tree` lista as pastas e
   `GET /api/files/raw` devolve o texto dos arquivos de uma sala fixa. O acesso fica dentro da pasta da sala (links que
   saem dela são recusados), segredos (`.env`, chaves, `.ssh`...) aparecem como bloqueados e nunca são lidos, e só

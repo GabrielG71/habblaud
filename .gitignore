@@ -8,3 +8,6 @@ scripts/assets/.cache/
 
 # Configurações locais do Claude Code e caches de geração
 .claude/
+
+# Equipe do escritório: nomes e descrições reais ficam só nesta máquina (modelo em config/equipe.example.json)
+config/equipe.json

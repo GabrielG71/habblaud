@@ -1,0 +1,20 @@
+{
+  "people": [
+    {
+      "name": "Pessoa A",
+      "look": "f",
+      "note": "campo livre, ignorado: descreva a pessoa aqui",
+      "parts": { "skin": "#eab894", "hair": "#3f2c22", "hairStyle": "curly", "accessory": "glasses", "accessoryColor": "#2b2b33", "facialHair": "none" }
+    },
+    {
+      "name": "Pessoa B",
+      "look": "m",
+      "parts": { "skin": "#f6cfb0", "hair": "#2b2530", "hairStyle": "short", "accessory": "none", "facialHair": "beard" }
+    },
+    {
+      "name": "Pessoa C",
+      "look": "m",
+      "parts": { "skin": "#f6cfb0", "hair": "#2b2530", "hairStyle": "short", "accessory": "cap", "accessoryColor": "#2b2b33", "facialHair": "beard" }
+    }
+  ]
+}
