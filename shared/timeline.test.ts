@@ -212,4 +212,14 @@ describe('timeline: leitura do arquivo', () => {
     expect('parts' in plain).toBe(false);
     expect(toAgentInfo(plain).parts).toBeUndefined();
   });
+
+  it('extras (figura, capuz, estampa) vão e voltam no timelapse; agente sem extras continua sem', () => {
+    const extras = { figure: 'potion', figureColor: '#c4162c' } as const;
+    const c = compactAgent(agent('.claude:1', { extras }));
+    expect(c.extras).toEqual(extras);
+    expect(toAgentInfo(c).extras).toEqual(extras);
+    const plain = compactAgent(agent('.claude:2', { extras: {} }));
+    expect('extras' in plain).toBe(false);
+    expect(toAgentInfo(plain).extras).toBeUndefined();
+  });
 });

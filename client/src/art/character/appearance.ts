@@ -17,6 +17,7 @@ import {
   TOP_COLORS,
   type SeedAppearance,
 } from '../../../../shared/world/appearance-flat';
+import { extrasKey } from '../../../../shared/look-extras';
 import type { Appearance, TopStyle } from '../api';
 import { tr } from '../../../../shared/i18n';
 
@@ -25,14 +26,14 @@ export type { BottomStyle, FacialHair } from '../../../../shared/world/appearanc
 
 // O formato de shared/world/appearance-flat.ts e o da arte (art/api.ts) não podem se separar.
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-const _sameAppearance: Same<SeedAppearance, Appearance> = true;
+const _sameAppearance: Same<SeedAppearance, Omit<Appearance, 'extras'>> = true;
 void _sameAppearance;
 
 /** Chave estável de uma aparência (para cache de sprites). */
 export function appearanceKey(a: Appearance): string {
   return [
     a.skin, a.hair, a.hairStyle, a.eyes, a.top, a.topAccent, a.topStyle, a.bottom, a.shoes, a.accessory,
-    a.accessoryColor, a.lanyard ?? '-', a.look, a.facialHair ?? '-', a.bottomStyle ?? '-',
+    a.accessoryColor, a.lanyard ?? '-', a.look, a.facialHair ?? '-', a.bottomStyle ?? '-', extrasKey(a.extras) || '-',
   ].join('|');
 }
 

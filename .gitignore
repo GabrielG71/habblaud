@@ -11,3 +11,6 @@ scripts/assets/.cache/
 
 # Equipe do escritório: nomes e descrições reais ficam só nesta máquina (modelo em config/equipe.example.json)
 config/equipe.json
+
+# Aparência dos Gestores: quem usa qual visual fica só nesta máquina (modelo em config/gestores.example.json)
+config/gestores.json

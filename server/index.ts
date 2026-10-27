@@ -22,6 +22,7 @@ import { NameStore } from './model/names';
 import { Office } from './model/office';
 import { gestorArgs, loadFixedRooms } from './model/fixed';
 import { loadTeam, teamFile } from './model/team';
+import { gestorLooksFile, loadGestorLooks } from './model/gestor-look';
 import { RoomAliases } from './model/room-aliases';
 import { createPtyRoutes } from './http/pty';
 import { createFilesRoutes } from './http/files';
@@ -83,6 +84,7 @@ roomAliases.load();
 // Salas fixas (sempre no prédio, com o personagem da sala sentado quando não há sessão).
 const fixedRooms = loadFixedRooms(join(config.dataDir, 'escritorio.json'));
 const team = loadTeam(teamFile(config.rootDir));
+const gestorLooks = loadGestorLooks(gestorLooksFile(config.rootDir));
 
 // Office, contas e fontes de agentes se referenciam (avisos de mudança / fontes): ligação tardia.
 const late: { office?: Office; agents?: SourceSet; permissions?: PermissionRegistry; messages?: MessageRegistry; ptys?: PtyManager; ptyOff?: string } = {};
@@ -124,6 +126,7 @@ const office = new Office({
   roomAlias: (path) => roomAliases.get(path),
   fixedRooms: () => fixedRooms,
   team: () => team,
+  gestorLooks: () => gestorLooks,
   version: config.version,
   // No modo dev o Vite serve o cliente direto do código-fonte: não há build para comparar.
   build: config.dev ? undefined : createBuildReader(config.rootDir),

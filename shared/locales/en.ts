@@ -1813,6 +1813,8 @@ export const EN: Readonly<Record<string, string>> = {
 
   // server/model/names.ts
   "names.json ilegível ({0}); começando do zero.": "names.json unreadable ({0}); starting from scratch.",
+  "equipe.json ilegível ({0}); subagentes com nomes sorteados.": "equipe.json unreadable ({0}); subagents with randomly drawn names.",
+  "gestores.json ilegível ({0}); Gestores com a aparência de sempre.": "gestores.json unreadable ({0}); Gestores with their usual look.",
   "Não foi possível gravar {0} ({1}); os nomes valem só nesta execução.": "Couldn't write {0} ({1}); names only last for this run.",
 
   // server/model/office.ts

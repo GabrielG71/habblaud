@@ -4,6 +4,7 @@
 // vira canvas, uma única vez por combinação de parâmetros (cache). As funções draw* chamadas a cada
 // quadro (telas, quadro, janela, relógio, pisos, paredes) só fazem fillRect/drawImage de tiles prontos.
 import { partsKey, type AppearanceParts } from '../../../shared/appearance';
+import { extrasKey, hasExtras, type LookExtras } from '../../../shared/look-extras';
 import { hash32 } from '../../../shared/hash';
 import {
   TILE,
@@ -21,6 +22,7 @@ import {
   type WallStyle,
 } from './api';
 import { appearanceFromSeed as appearanceFromSeedPure, appearanceKey } from './character/appearance';
+import { FIGURE_AVATAR_CROP } from './character/figure';
 import { CHAR_H, CHAR_W, POSE_DURATION, POSE_FRAMES, isSeated, renderCharacter } from './character/render';
 import { shade } from './core/color';
 import { PixelBuf } from './core/pixbuf';
@@ -88,8 +90,10 @@ function keyOf(a: Appearance): string {
 
 // ------------------------------------------------------------------ personagens
 
-export function appearanceFromSeed(seed: number, opts: { look?: 'f' | 'm'; sub?: boolean; parts?: AppearanceParts } = {}): Appearance {
-  return appearanceFromSeedPure(seed, opts);
+export function appearanceFromSeed(seed: number, opts: { look?: 'f' | 'm'; sub?: boolean; parts?: AppearanceParts; extras?: LookExtras } = {}): Appearance {
+  const { extras, ...rest } = opts;
+  const a: Appearance = appearanceFromSeedPure(seed, rest);
+  return hasExtras(extras) ? { ...a, extras: { ...extras } } : a;
 }
 
 export function poseFrameCount(pose: Pose): number {
@@ -108,13 +112,15 @@ export function characterSprite(req: CharacterFrameRequest): Sprite {
   return charCache.get(key, () => toSprite(renderCharacter({ ...req, frame, seated })));
 }
 
-export function avatarCanvas(seed: number, opts: { look?: 'f' | 'm'; sub?: boolean; scale?: number; parts?: AppearanceParts } = {}): HTMLCanvasElement {
+export function avatarCanvas(seed: number, opts: { look?: 'f' | 'm'; sub?: boolean; scale?: number; parts?: AppearanceParts; extras?: LookExtras } = {}): HTMLCanvasElement {
   const scale = Math.max(1, Math.round(opts.scale ?? 3));
-  const key = `${seed}|${opts.look ?? '-'}|${opts.sub ? 1 : 0}|${scale}|${partsKey(opts.parts)}`;
+  const key = `${seed}|${opts.look ?? '-'}|${opts.sub ? 1 : 0}|${scale}|${partsKey(opts.parts)}|${extrasKey(opts.extras)}`;
   return avatarCache.get(key, () => {
-    const s = renderCharacter({ appearance: appearanceFromSeedPure(seed, opts), dir: 'down', pose: 'stand', frame: 0 });
-    // Busto: cabeça + ombros (20x20 a partir do topo do cabelo).
-    const crop = s.buf.crop(2, 2, CHAR_W - 4, 20);
+    const appearance = appearanceFromSeed(seed, opts);
+    const s = renderCharacter({ appearance, dir: 'down', pose: 'stand', frame: 0 });
+    // Busto: cabeça + ombros (20x20 a partir do topo do cabelo); figura não humana: ela inteira, no mesmo 20x20.
+    const c = appearance.extras?.figure ? FIGURE_AVATAR_CROP : { x: 2, y: 2, w: CHAR_W - 4, h: 20 };
+    const crop = s.buf.crop(c.x, c.y, c.w, c.h);
     const out = new PixelBuf(crop.w * scale, crop.h * scale);
     for (let y = 0; y < out.h; y++) {
       for (let x = 0; x < out.w; x++) {

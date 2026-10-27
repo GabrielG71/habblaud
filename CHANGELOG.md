@@ -12,6 +12,16 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Aparência dos Gestores:** cada Gestor (a sessão principal de um projeto) pode ganhar um visual próprio, lido de
+  `config/gestores.json` (por `gestor` da sala fixa ou por `path`). Só a aparência muda: nome, sala e semente continuam
+  os mesmos, e quem não está no arquivo fica como sempre. O arquivo fica fora do git; `config/gestores.example.json` é o
+  modelo, e `HABBLAUD_GESTORES_FILE` troca o caminho. O arquivo manda em `look`, `parts` (pele, cabelo, careca, barba,
+  roupa...) e `extras`, também depois de editar o personagem ou "Voltar ao sorteio".
+- **Peças novas só do escritório local (`extras`):** capuz que cobre a cabeça com olhos grandes e brancos (`hood_mask`),
+  estampa de teia na roupa e no capuz (`web`) e uma figura não humana no lugar do personagem, a poção (`potion`: frasco
+  redondo, líquido com bolhinhas, rolha de cortiça e brilho rosado, que quica em vez de andar). Aparecem na cena, nas
+  listas, na gaveta e nas dicas. Ficam fora de `AppearanceParts`: o Habblaud World não recebe nada disso, e um Gestor sem
+  peças humanas chega lá como um personagem sorteado.
 - **Equipe do escritório:** cada subagente que entra na sala assume uma pessoa de `config/equipe.json` (nome e avatar
   montado com pele, cabelo, barba, óculos e boné). O sorteio não repete pessoa enquanto houver alguém livre, a pessoa
   fica a mesma enquanto o agente existir (inclusive quando ele é retomado por `SendMessage`) e a função continua no

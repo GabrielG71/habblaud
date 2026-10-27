@@ -1,0 +1,22 @@
+{
+  "gestores": [
+    {
+      "gestor": "projeto-a",
+      "note": "campo livre, ignorado. 'gestor' é o `gestor` da sala fixa em ~/.habblaud/escritorio.json; no lugar dele dá para usar 'path' (pasta do projeto). Só a aparência muda: nome, sala e semente ficam como estão.",
+      "look": "m",
+      "parts": { "skin": "#f6cfb0", "hair": "#3f2c22", "hairStyle": "bald", "facialHair": "beard", "topStyle": "sweater", "top": "#3d4352", "topAccent": "#8a96a3" }
+    },
+    {
+      "gestor": "projeto-b",
+      "note": "capuz com olhos grandes e estampa de teia: peças só do escritório local (extras), por cima das peças humanas",
+      "look": "m",
+      "parts": { "skin": "#cf2a30", "topStyle": "sweater", "top": "#d42a31", "topAccent": "#2f56b8", "bottom": "#2f56b8", "shoes": "#d42a31", "accessory": "none" },
+      "extras": { "headgear": "hood_mask", "headgearColor": "#d42a31", "pattern": "web", "patternColor": "#6e0f1b" }
+    },
+    {
+      "gestor": "projeto-c",
+      "note": "figura não humana no lugar do personagem: poção com o líquido na cor dada (sem 'parts', o World recebe um personagem sorteado)",
+      "extras": { "figure": "potion", "figureColor": "#c4162c" }
+    }
+  ]
+}

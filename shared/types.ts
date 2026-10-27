@@ -5,6 +5,7 @@
 // Renomear/remover campos quebra servidor, mundo e UI ao mesmo tempo.
 
 import type { AppearanceParts } from './appearance';
+import type { LookExtras } from './look-extras';
 import type { WorldMeta } from './world/api';
 
 export type AgentKind = 'main' | 'sub';
@@ -172,6 +173,11 @@ export interface AgentInfo {
   seed: number;
   /** Peças escolhidas no editor do personagem, aplicadas por cima da aparência da `seed` (ver shared/appearance.ts). */
   parts?: AppearanceParts;
+  /**
+   * Peças só do escritório local (capuz, estampa, figura não humana; ver shared/look-extras.ts), vindas de
+   * config/gestores.json. Nunca sobem ao World.
+   */
+  extras?: LookExtras;
   /** Usa o personagem escolhido para o projeto (a sala): o painel oferece "Voltar ao sorteio". */
   custom?: true;
   /** Subagente rodando em segundo plano. */

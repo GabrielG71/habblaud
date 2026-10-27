@@ -5,6 +5,7 @@ import type { Appearance, CharacterFrameRequest, HeldItem, Pose } from '../api';
 import { luminance, mix, ramp, shade, type Ramp } from '../core/color';
 import { PixelBuf, type Palette } from '../core/pixbuf';
 import type { BufSprite } from '../core/sprite';
+import { renderFigure } from './figure';
 import { HAIR, HEAD_BASE, TEXTURED, type HeadView, type Tpl } from './hair';
 
 export const CHAR_W = 24;
@@ -686,7 +687,7 @@ function drawHead(dc: Dc): void {
 
 function drawFacialHair(dc: Dc): void {
   const style = dc.a.facialHair ?? 'none';
-  if (style === 'none' || dc.r.view === 'up') return;
+  if (style === 'none' || dc.r.view === 'up' || dc.a.extras?.headgear) return;
   const { b, p, r } = dc;
   const ox = HX + r.lean;
   const oy = HY + r.ub + r.hd;
@@ -729,6 +730,7 @@ function drawFacialHair(dc: Dc): void {
 }
 
 function drawHair(dc: Dc, layer: 'front' | 'back'): void {
+  if (dc.a.extras?.headgear) return; // o capuz cobre o cabelo
   const style = dc.a.hairStyle;
   const set = HAIR[style]?.[dc.r.view];
   const tpl = set?.[layer];
@@ -740,6 +742,7 @@ function drawHair(dc: Dc, layer: 'front' | 'back'): void {
 }
 
 function drawAccessory(dc: Dc): void {
+  if (dc.a.extras?.headgear) return; // o capuz cobre a cabeça: nada de óculos, boné ou fone por cima
   const { b, p, r, a } = dc;
   const ox = HX + r.lean;
   const oy = HY + r.ub + r.hd;
@@ -1055,6 +1058,11 @@ function drawLegsSide(dc: Dc, pants: Ramp, sh: Ramp, skinLeg: boolean): void {
 }
 
 function drawTorso(dc: Dc): void {
+  drawTorsoBase(dc);
+  drawTopPattern(dc);
+}
+
+function drawTorsoBase(dc: Dc): void {
   const { b, p, r, a } = dc;
   const y = 18 + r.ub;
   const t = p.top;
@@ -1517,7 +1525,124 @@ function drawCostume(dc: Dc, costume: CharacterFrameRequest['costume']): void {
   }
 }
 
+// ---------------------------------------------------------------- capuz e estampa (extras do escritório local)
+
+/** Cores padrão do capuz (vermelho de máscara) e da estampa (linhas escuras da teia). */
+const HOOD_COLOR = '#d42a31';
+const WEB_COLOR = '#6e0f1b';
+
+/**
+ * Linhas do capuz sobre a grade da cabeça (14 colunas; linhas 0..10 = y 7..17 em pé). W = lente branca, w = lente em
+ * sombra, K = aro escuro da lente, '.' = deixa o capuz como está. Olhos grandes e inclinados para o nariz.
+ */
+const HOOD_EYES: Readonly<Record<HeadView, readonly string[]>> = {
+  down: [
+    '..............',
+    '.KKKK....KKKK.',
+    '.KWWWK..KWWWK.',
+    '..KWWWwwWWWK..',
+    '...KKKK.KKKK..',
+    '..............',
+    '..............',
+    '..............',
+    '..............',
+    '..............',
+    '..............',
+  ],
+  up: [],
+  side: [
+    '..............',
+    '.KKKK.........',
+    '.KWWWK........',
+    '..KWWWK.......',
+    '...KKKK.......',
+    '..............',
+    '..............',
+    '..............',
+    '..............',
+    '..............',
+    '..............',
+  ],
+};
+
+/** Teia sobre o capuz: linhas radiais a partir do meio da testa e dois arcos (grade da cabeça; x = coluna, y = linha). */
+const HOOD_WEB: Readonly<Record<HeadView, readonly (readonly [number, number, number, number])[]>> = {
+  down: [[6, 0, 6, 1], [7, 0, 7, 1], [2, 2, 5, 3], [11, 2, 8, 3], [1, 5, 2, 5], [12, 5, 11, 5], [4, 9, 6, 10], [9, 9, 7, 10]],
+  up: [[6, 0, 6, 10], [7, 2, 7, 9], [1, 3, 12, 3], [1, 7, 12, 7], [2, 1, 5, 3], [11, 1, 8, 3], [2, 9, 5, 7], [11, 9, 8, 7]],
+  side: [[5, 0, 5, 1], [8, 2, 6, 3], [9, 5, 8, 5], [3, 9, 5, 10]],
+};
+
+/** Capuz: refaz a cabeça inteira na cor do capuz, com olhos grandes, por cima de rosto, cabelo e pelos. */
+function drawHeadgear(dc: Dc): void {
+  const style = dc.a.extras?.headgear;
+  if (!style) return;
+  const { b, r, a } = dc;
+  const view = r.view;
+  const m = ramp(a.extras?.headgearColor ?? HOOD_COLOR, 0.08);
+  const tpl = HEAD_BASE[view];
+  const dy = r.ub + r.hd;
+  const pal: Palette = { s: m.base, S: m.dk, L: m.lt, e: m.base, E: m.base, b: m.base, m: m.base, r: m.dk };
+  b.stamp(tpl.rows, HX + tpl.x + r.lean, HY + tpl.y + dy, pal);
+  const ox = HX + tpl.x + r.lean;
+  const oy = HY + tpl.y + dy;
+  const covered = (x: number, y: number) => b.alpha(ox + x, oy + y) > 0;
+  const put = (x: number, y: number, c: string) => {
+    if (covered(x, y)) b.set(ox + x, oy + y, c);
+  };
+  // Brilho do tecido (luz de cima/esquerda).
+  if (view !== 'up') put(3, 1, m.hi);
+  put(2, 1, m.lt);
+  // Teia por cima do capuz, se a estampa estiver ligada.
+  if (a.extras?.pattern === 'web') {
+    const line = a.extras.patternColor ?? WEB_COLOR;
+    for (const [x0, y0, x1, y1] of HOOD_WEB[view]) segment(x0, y0, x1, y1, (x, y) => put(x, y, line));
+  }
+  // Olhos: lente branca com aro escuro.
+  const eyes = HOOD_EYES[view];
+  const rim = shade(m.dd, -0.25);
+  const lens: Palette = { W: '#fbfbff', w: '#c9cfe6', K: rim };
+  for (let y = 0; y < eyes.length; y++) {
+    for (let x = 0; x < eyes[y].length; x++) {
+      const c = lens[eyes[y][x]];
+      if (c) put(x, y, c);
+    }
+  }
+}
+
+/** Pontos de um segmento (x0,y0)-(x1,y1) em pixels inteiros, extremos incluídos. */
+function segment(x0: number, y0: number, x1: number, y1: number, plot: (x: number, y: number) => void): void {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1;
+  for (let i = 0; i <= n; i++) plot(Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n));
+}
+
+/** Estampa da roupa de cima (por cima do estilo): teia, só onde há roupa. */
+function drawTopPattern(dc: Dc): void {
+  if (dc.a.extras?.pattern !== 'web') return;
+  const { b, r, a } = dc;
+  const y = 18 + r.ub;
+  const lx = r.lean;
+  const line = a.extras?.patternColor ?? WEB_COLOR;
+  const on = (x: number, yy: number) => {
+    if (b.alpha(x, yy) > 0) b.set(x, yy, line);
+  };
+  const seg = (x0: number, y0: number, x1: number, y1: number) => segment(x0, y0, x1, y1, (x, yy) => on(x + lx, yy));
+  if (r.view === 'side') {
+    seg(9, y, 12, y + 3);
+    seg(14, y + 1, 12, y + 3);
+    seg(9, y + 4, 14, y + 4);
+    return;
+  }
+  // Frente e costas: dois raios a partir do meio do peito, um para baixo e um arco (a roupa é pequena: poucas linhas).
+  seg(8, y, 11, y + 2);
+  seg(15, y, 12, y + 2);
+  seg(11, y + 3, 11, y + 5);
+  seg(12, y + 3, 12, y + 4);
+  seg(9, y + 4, 14, y + 4);
+}
+
 export function renderCharacter(req: CharacterFrameRequest): BufSprite {
+  // Figura não humana (extras.figure): ocupa o lugar do personagem, na mesma folha e com a mesma âncora.
+  if (req.appearance.extras?.figure) return renderFigure(req, isSeated(req.pose, req.seated));
   if (req.dir === 'right') {
     const left = renderCharacter({ ...req, dir: 'left' });
     return { buf: left.buf.flipped(), ax: CHAR_W - left.ax, ay: left.ay };
@@ -1544,6 +1669,7 @@ export function renderCharacter(req: CharacterFrameRequest): BufSprite {
     drawFacialHair(dc);
     drawHair(dc, 'front');
     drawAccessory(dc);
+    drawHeadgear(dc);
     drawCostume(dc, req.costume);
   };
 
@@ -1571,6 +1697,7 @@ export function renderCharacter(req: CharacterFrameRequest): BufSprite {
     drawFacialHair(dc);
     drawHair(dc, 'front');
     drawAccessory(dc);
+    drawHeadgear(dc);
     drawCostume(dc, req.costume);
     if (ip && !r.itemBehind) drawItem(dc, ip[0], ip[1]);
     drawArm(dc, r.armB, sr, sleeve, 0, true);
@@ -1591,6 +1718,7 @@ export function renderCharacter(req: CharacterFrameRequest): BufSprite {
     drawFacialHair(dc);
     drawHair(dc, 'front');
     drawAccessory(dc);
+    drawHeadgear(dc);
     drawCostume(dc, req.costume);
     // Braços cruzados por cima do cabelo comprido que cai no peito (a mão que bate fica visível).
     if (r.crossFront !== null) drawCrossedArms(dc, sr, sleeve, r.crossFront === 1);

@@ -31,6 +31,8 @@ import { hash32 } from '../../shared/hash';
 import { applyPermission } from '../permissions/registry';
 import type { FixedRoom } from './fixed';
 import { findMember, pickMember, type TeamMember } from '../../shared/team';
+import type { GestorLook } from '../../shared/gestor-look';
+import { findGestorLook } from './gestor-look';
 import type { NameStore, StoredCharacter } from './names';
 import { normalizeCwd, roomDisplayNames, SlotAllocator } from './rooms';
 import { tr } from '../../shared/i18n';
@@ -86,6 +88,8 @@ export interface OfficeDeps {
   fixedRooms?: () => readonly FixedRoom[];
   /** Pessoas da equipe (config/equipe.json): cada subagente que entra assume uma. Vazio ou ausente = nomes do pool. */
   team?: () => readonly TeamMember[];
+  /** Aparência dos Gestores (config/gestores.json): vale por cima do personagem da sala. Vazio ou ausente = aparência de sempre. */
+  gestorLooks?: () => readonly GestorLook[];
   /** Sorteio da pessoa (testes); padrão Math.random. */
   random?: () => number;
   now?: () => number;
@@ -181,6 +185,7 @@ function cloneAgent(a: AgentInfo): AgentInfo {
   const c: AgentInfo = { ...a, recent: a.recent.slice(), tasks: a.tasks.map((t) => ({ ...t })), stats: { ...a.stats } };
   if (a.shells) c.shells = a.shells.map((j) => ({ ...j }));
   if (a.parts) c.parts = { ...a.parts };
+  if (a.extras) c.extras = { ...a.extras };
   return c;
 }
 
@@ -359,6 +364,7 @@ export class Office {
       info.custom = true;
       if (chosen.parts) info.parts = { ...chosen.parts };
     }
+    this.applyGestorLook(info);
     if (p.status === 'waiting') info.waitingFor = p.waitingFor ?? tr('responder no terminal');
     const rec: AgentRecord = { info, history: [] };
     if (p.status === 'working') rec.turnStart = now;
@@ -845,6 +851,7 @@ export class Office {
     if (parts) info.parts = parts;
     else delete info.parts;
     info.custom = true;
+    this.applyGestorLook(info);
     const room = this.roomName(info.roomId);
     const text = before === input.name ? tr('✏️ {0} mudou de visual em {1}', [input.name, room]) : tr('✏️ {0} agora é {1} em {2}', [before, input.name, room]);
     this.notice('character', id, 'info', text, info.roomId, { dedupeMs: 0 });
@@ -868,10 +875,24 @@ export class Office {
       info.look = person.look;
       info.seed = hash32(id);
       delete info.parts;
+      delete info.extras;
       delete info.custom;
     }
+    this.applyGestorLook(info);
     this.markDirty();
     return 'ok';
+  }
+
+  /**
+   * Aparência do Gestor desta sala (config/gestores.json) por cima do personagem: o arquivo manda em `look`, `parts` e
+   * `extras` (só nos campos que a entrada traz); o nome, a semente e o resto ficam como estão. Sem entrada, não mexe.
+   */
+  private applyGestorLook(info: AgentInfo): void {
+    const g = findGestorLook(this.deps.gestorLooks?.() ?? [], info.roomId, this.deps.fixedRooms?.() ?? []);
+    if (!g) return;
+    if (g.look) info.look = g.look;
+    if (g.parts) info.parts = { ...g.parts };
+    if (g.extras) info.extras = { ...g.extras };
   }
 
   /** Agente principal real e presente (nem subagente, nem demo, nem saindo). */
@@ -1030,6 +1051,7 @@ export class Office {
       .filter((f) => !busy.has(f.id))
       .map((f) => {
         const c = this.deps.names.character(f.id);
+        const g = findGestorLook(this.deps.gestorLooks?.() ?? [], f.id, fixed);
         return {
           id: `residente:${f.id}`,
           kind: 'main',
@@ -1047,7 +1069,9 @@ export class Office {
           statusSince: at,
           stats: zeroStats(),
           seed: c?.seed ?? hash32(f.id),
-          ...(c?.parts ? { parts: { ...c.parts } } : {}),
+          ...(g?.look ? { look: g.look } : {}),
+          ...((g?.parts ?? c?.parts) ? { parts: { ...(g?.parts ?? c?.parts) } } : {}),
+          ...(g?.extras ? { extras: { ...g.extras } } : {}),
           ...(c ? { custom: true as const } : {}),
           resident: true as const,
           ...(f.gestor ? { launch: f.gestor } : {}),
