@@ -7,7 +7,7 @@ import { DEFAULT_WORLD_OPTIONS, seasonalThemeFor, type Selection, type SocialEve
 import { loadWorldAssets, type WorldAssets } from './assets';
 import { Camera, overviewFrame } from './camera';
 import { createDebug, type WorldDebug } from './debug';
-import { createFramePacer, windowFocused } from './frame-pacer';
+import { createFramePacer, officeSignature, windowFocused } from './frame-pacer';
 import { BUILDING_H, COL_W } from './constants';
 import { RECEPTION_ID } from './layout/core';
 import { inRect } from './layout/geometry';
@@ -24,6 +24,11 @@ export * from './api';
 export type { WorldDebug } from './debug';
 
 const art: ArtModule = artModule;
+
+/** Teto do dt de um quadro (s): acima disso (aba parada...) o mundo se recupera por fastForward, não por um passo gigante. */
+const MAX_DT = 0.25;
+/** Maior passo da simulação (s). */
+const SIM_STEP = 0.05;
 
 /** O que a cena Visita usa do mundo dela (createWorld com `visit: true`). */
 export interface VisitWorld {
@@ -67,6 +72,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   const hoverCbs = new Set<(id: string | null) => void>();
   const socialCbs = new Set<(e: SocialEvent) => void>();
   const soundCbs = new Set<(c: SoundCue) => void>();
+  const frameCbs = new Set<() => void>();
   const roomMenuCbs = new Set<(roomId: string, at: { x: number; y: number }) => void>();
   let cues = new SoundCues(sim, camera);
   let selection: Selection = null;
@@ -74,8 +80,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let mouse: { x: number; y: number } | null = null;
   let raf = 0;
   let lastTs = 0;
-  /** Teto de 60 quadros por segundo (15 com a janela sem foco): os quadros pulados deixam o dt acumular. */
+  /**
+   * Ritmo de desenho (frame-pacer.ts): 30 fps com atividade, 10 fps ocioso, 8 fps sem foco. Os quadros pulados deixam
+   * o dt acumular. `poke` = algo relevante aconteceu (ponteiro, câmera, seleção, agente mudando de estado).
+   */
   const pacer = createFramePacer(windowFocused());
+  const poke = () => pacer.poke();
+  camera.onActivity = poke;
   let hiddenAt = 0;
   /** Escritório fora da tela (cidade aberta): sem laço de desenho nem teclado da câmera. */
   let suspended = false;
@@ -99,6 +110,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     }
     camera.setView(w, h, dpr);
     updateBounds();
+    poke();
   };
 
   const buildingRect = () => ({ x: 0, y: 0, w: sim.building.cols * COL_W * TILE, h: BUILDING_H * TILE });
@@ -150,6 +162,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       if (sel.type === 'agent') focusAgent(sel.id, { follow: options.followSelected });
       else focusRoom(sel.id);
     }
+    poke();
     if (!same) emitSelect();
   };
 
@@ -249,9 +262,16 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
 
   // ------------------------------------------------------------------ dados
 
+  // Assinatura do que move o escritório (quem está onde e em que estado, efeitos de sala): mudou, o desenho sobe de ritmo.
+  let snapSig = '';
   const onSnapshot = () => {
     const snap = store.snapshot;
     if (!snap) return;
+    const sig = officeSignature(snap);
+    if (sig !== snapSig) {
+      snapSig = sig;
+      poke();
+    }
     try {
       // No timelapse, os horários do snapshot vão para o relógio do mundo (world/playback.ts).
       if (playback) sim.applySnapshot(rebaseSnapshot(snap, worldNow - snap.serverTime), worldNow);
@@ -280,7 +300,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     // leva o tempo todo que passou (mesma velocidade do mundo, menos trabalho por segundo).
     if (!pacer.due(ts)) return;
     const real = Date.now();
-    const realDt = lastTs ? Math.min(0.1, Math.max(0, (ts - lastTs) / 1000)) : 1 / 60;
+    // Com 8–10 fps o intervalo passa de 0.1 s: o teto é mais alto para o mundo não andar em câmera lenta.
+    const realDt = lastTs ? Math.min(MAX_DT, Math.max(0, (ts - lastTs) / 1000)) : 1 / 60;
     lastTs = ts;
     // Timelapse: simulação e desenho no relógio do mundo (acelerado ou parado); a câmera segue no tempo real.
     const k = playback ? Math.max(0, playback.scale()) : 1;
@@ -290,7 +311,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     try {
       const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
       if (canvas.clientWidth !== camera.viewW || canvas.clientHeight !== camera.viewH || dpr !== camera.dpr) resize();
-      sim.update(dt, now);
+      // Passos curtos (≤ 1/20 s) na simulação: com poucos quadros por segundo, quem anda e as colisões se comportam
+      // como a 20+ fps. No timelapse o dt já vem multiplicado pela velocidade e segue inteiro.
+      const steps = playback ? 1 : Math.max(1, Math.ceil(dt / SIM_STEP));
+      for (let i = 0; i < steps; i++) sim.update(dt / steps, now);
       // partidas e apostas resolvidas: para o feed (as do timelapse são encenação do passado: ficam fora)
       const events = sim.social.events;
       if (events.length) {
@@ -310,7 +334,12 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       if (visitMode && sim.visitor && (sim.visitorIntent.dx || sim.visitorIntent.dy) && camera.follow !== VISITOR_ID) followVisitor();
       const followCh = camera.follow ? sim.person(camera.follow) : undefined;
       if (camera.follow && !followCh) camera.follow = null;
+      const cx = camera.x;
+      const cy = camera.y;
+      const cz = camera.zoom;
       camera.update(real, followCh ? camera.centerFor(followCh.x, followCh.y - 12, camera.zoom) : null, realDt);
+      // câmera andando (animação, seguindo alguém), visitante andando ou timelapse rodando: ritmo ativo
+      if (camera.x !== cx || camera.y !== cy || camera.zoom !== cz || camera.animating || playback || (visitMode && (sim.visitorIntent.dx || sim.visitorIntent.dy))) poke();
       renderer.frame(now, dt, options, { agent: selection?.type === 'agent' ? selection.id : null, room: selection?.type === 'room' ? selection.id : null, hover });
       overlay.draw(now, options, { agent: selection?.type === 'agent' ? selection.id : null, room: selection?.type === 'room' ? selection.id : null, hover });
       renderer.pruneHeads();
@@ -326,6 +355,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     } catch (err) {
       console.error('[mundo] erro no frame', err);
     }
+    for (const cb of frameCbs) {
+      try {
+        cb();
+      } catch (err) {
+        console.error('[mundo] erro no onFrame', err);
+      }
+    }
   };
 
   const onVisibility = () => {
@@ -335,11 +371,12 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       return;
     }
     lastTs = 0;
+    poke();
     if (hiddenAt && Date.now() - hiddenAt > 5000) sim.fastForward(playback ? worldNow : Date.now());
     hiddenAt = 0;
   };
 
-  // Janela visível mas sem foco: desenha a 15 fps em vez de 60 (não congela); com foco volta a 60 na hora.
+  // Janela visível mas sem foco: desenha a 8 fps (não congela); com foco volta ao ritmo ativo/ocioso na hora.
   const onFocus = () => pacer.setFocused(true);
   const onBlur = () => pacer.setFocused(false);
 
@@ -362,6 +399,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     roomMenuCbs.forEach((cb) => cb(roomId, { x: e.clientX, y: e.clientY }));
   };
   canvas.addEventListener('contextmenu', onContextMenu);
+  // Mexer no mundo (ponteiro, roda, toque) leva o desenho ao ritmo ativo; o teclado vale pelo movimento da câmera.
+  for (const type of ['pointermove', 'pointerdown', 'wheel'] as const) canvas.addEventListener(type, poke, { passive: true, signal: abort.signal });
   window.addEventListener('resize', resize);
   window.addEventListener('focus', onFocus);
   window.addEventListener('blur', onBlur);
@@ -426,6 +465,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     getOptions: () => ({ ...options }),
     setOptions: (o) => {
       options = { ...options, ...o };
+      poke();
       if (o.followSelected !== undefined) camera.follow = o.followSelected && selection?.type === 'agent' ? selection.id : null;
     },
     setViewInsets: (ins) => {
@@ -433,6 +473,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       const cur = camera.insets;
       camera.insets = { top: v(ins.top, cur.top), right: v(ins.right, cur.right), bottom: v(ins.bottom, cur.bottom), left: v(ins.left, cur.left) };
       updateBounds();
+      poke();
       if (!userMoved && framed) overview(true);
     },
     screenPositionOf: (id) => {
@@ -443,6 +484,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       return p;
     },
     social: (id) => sim.social.info(id),
+    onFrame: (cb) => {
+      frameCbs.add(cb);
+      return () => void frameCbs.delete(cb);
+    },
     onRoomContextMenu: (cb) => {
       roomMenuCbs.add(cb);
       return () => void roomMenuCbs.delete(cb);
@@ -455,6 +500,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       playback = p;
       worldNow = p ? p.clock() : 0;
       rebuild();
+      poke();
     },
     onSound: (cb) => {
       soundCbs.add(cb);
@@ -471,6 +517,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
         return;
       }
       lastTs = 0;
+      pacer.reset();
+      poke();
       if (suspendedAt && Date.now() - suspendedAt > 5000) sim.fastForward(playback ? worldNow : Date.now());
       suspendedAt = 0;
       hiddenAt = 0;
@@ -490,6 +538,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       hoverCbs.clear();
       socialCbs.clear();
       soundCbs.clear();
+      frameCbs.clear();
     },
     get debug() {
       return debug;

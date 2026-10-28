@@ -19,11 +19,10 @@
   gap: 8px;
   padding: 5px;
   border-radius: 14px;
-  background: var(--ui-bg);
+  background: var(--ui-bg-glass);
   border: 1px solid var(--ui-line-strong);
   box-shadow: 0 10px 26px rgba(5, 7, 12, 0.45);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  contain: layout;
   animation: ui-city-dock-in 0.22s var(--ease);
 }
 
@@ -69,7 +68,7 @@
 }
 
 .ui-city-dock__btn.is-like .ui-city-dock__icon {
-  animation: ui-city-heartbeat 1.4s ease-in-out infinite;
+  animation: ui-city-heartbeat 1.4s steps(3) infinite;
 }
 
 @keyframes ui-city-heartbeat {
@@ -246,7 +245,7 @@
   border-top: 11px solid transparent;
   border-bottom: 11px solid transparent;
   filter: drop-shadow(0 0 1px #1b2030) drop-shadow(0 0 1px #1b2030) drop-shadow(0 3px 4px rgba(5, 7, 12, 0.6));
-  animation: ui-city-arrow 0.9s ease-in-out infinite;
+  animation: ui-city-arrow 0.9s steps(4) infinite;
 }
 
 .ui-city-wheel__arrow[hidden] {
@@ -281,10 +280,9 @@
   min-width: 0;
   padding: 3px 3px 3px 7px;
   border-radius: 9px;
-  background: var(--ui-bg);
+  background: var(--ui-bg-glass);
   border: 1px solid var(--ui-line-strong);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  contain: layout;
 }
 
 .ui-city-tp__label {

@@ -85,7 +85,7 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
   let panelOpen = !narrow();
   let destroyed = false;
   let leaveTimer: ReturnType<typeof setTimeout> | null = null;
-  let raf = 0;
+  let offFrame: (() => void) | null = null;
   let theme = '';
 
   // as luzes antes do primeiro snapshot: apagado já entra escuro
@@ -371,9 +371,12 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     }, LEAVE_TIMEOUT_MS);
   }
 
-  // a dica "Sair pelo elevador (E)" acompanha o visitante
+  // A dica "Sair pelo elevador (E)" e o quadro de carimbos acompanham o canvas: mexem-se a cada quadro que o mundo
+  // desenha (world.onFrame), no ritmo dele, em vez de um rAF próprio a 60/100 Hz. Só escreve no DOM o que mudou.
+  let hintW = 0;
+  let hintAt = '';
+  let boardAt = '';
   const tick = () => {
-    raf = requestAnimationFrame(tick);
     const show = !controller.leaving && world.visit.atExit();
     const at = show ? world.visit.visitorScreen() : null;
     setHidden(exitHint, !at);
@@ -382,19 +385,27 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
     const fits = !!r && r.h >= 18;
     setHidden(board, !fits);
     if (r && fits) {
-      board.style.transform = `translate(${Math.round(r.x)}px, ${Math.round(r.y)}px)`;
-      board.style.width = `${Math.round(r.w)}px`;
-      board.style.height = `${Math.round(r.h)}px`;
-      board.style.setProperty('--pin', `${Math.max(8, Math.round(r.h * 0.3))}px`);
+      const k = `${Math.round(r.x)}|${Math.round(r.y)}|${Math.round(r.w)}|${Math.round(r.h)}`;
+      if (k !== boardAt) {
+        boardAt = k;
+        board.style.transform = `translate(${Math.round(r.x)}px, ${Math.round(r.y)}px)`;
+        board.style.width = `${Math.round(r.w)}px`;
+        board.style.height = `${Math.round(r.h)}px`;
+        board.style.setProperty('--pin', `${Math.max(8, Math.round(r.h * 0.3))}px`);
+      }
     }
     if (at) {
-      // sobre a cabeça, sem sair da tela
-      const w = exitHint.offsetWidth || 150;
+      // sobre a cabeça, sem sair da tela (a largura é lida uma vez: ler offsetWidth a cada quadro força layout)
+      const w = hintW || (hintW = exitHint.offsetWidth || 150);
       const x = Math.max(8, Math.min(window.innerWidth - w - 8, at.x - w / 2));
-      exitHint.style.transform = `translate(${Math.round(x)}px, ${Math.round(at.y - 34)}px)`;
-    }
+      const t = `translate(${Math.round(x)}px, ${Math.round(at.y - 34)}px)`;
+      if (t !== hintAt) {
+        hintAt = t;
+        exitHint.style.transform = t;
+      }
+    } else hintW = 0;
   };
-  raf = requestAnimationFrame(tick);
+  offFrame = world.onFrame(tick);
   render();
   requestAnimationFrame(() => insets());
 
@@ -438,7 +449,8 @@ export function createVisitScene(o: VisitSceneOptions): VisitScene {
       if (destroyed) return;
       destroyed = true;
       if (leaveTimer) clearTimeout(leaveTimer);
-      cancelAnimationFrame(raf);
+      offFrame?.();
+      offFrame = null;
       offSelect();
       social.destroy();
       removeEventListener('keydown', onDown);

@@ -1,4 +1,4 @@
-// Dica flutuante do personagem sob o cursor: acompanha o personagem quadro a quadro.
+// Dica flutuante do personagem sob o cursor: acompanha o personagem a cada quadro que o mundo desenha.
 import type { UiComponent, UiContext } from './context';
 import { h, setHidden, setText, setVariant } from './dom';
 import { formatDuration } from './format';
@@ -20,7 +20,9 @@ import { tr } from '../../../shared/i18n';
 export class HoverTip implements UiComponent {
   readonly el: HTMLElement;
   private id: string | null = null;
-  private raf = 0;
+  /** Tamanho da dica: medido uma vez por render (ler offsetWidth a todo quadro forçaria layout), não a cada quadro. */
+  private size: { w: number; h: number } | null = null;
+  private lastPos = '';
   private name: HTMLElement;
   private chip: HTMLElement;
   private prov: HTMLElement;
@@ -51,20 +53,23 @@ export class HoverTip implements UiComponent {
       this.mood,
     );
     ctx.world.onHover((id) => this.setTarget(id));
+    // Sem rAF próprio: a dica anda junto com o canvas (30/10/8 fps conforme o ritmo do mundo).
+    ctx.world.onFrame(() => this.follow());
   }
 
   private setTarget(id: string | null): void {
     if (id === this.id) return;
     this.id = id;
     this.el.classList.toggle('is-visible', !!id);
-    cancelAnimationFrame(this.raf);
+    this.size = null;
+    this.lastPos = '';
     if (id) {
       this.render();
       this.follow();
     }
   }
 
-  /** Reposiciona a cada quadro enquanto houver alguém sob o cursor. */
+  /** Reposiciona a cada quadro desenhado enquanto houver alguém sob o cursor. */
   private follow = (): void => {
     if (!this.id) return;
     const p = this.ctx.world.screenPositionOf(this.id);
@@ -72,18 +77,23 @@ export class HoverTip implements UiComponent {
       this.el.classList.remove('is-visible');
     } else {
       this.el.classList.add('is-visible');
-      const w = this.el.offsetWidth;
-      const hgt = this.el.offsetHeight;
+      const size = (this.size ??= { w: this.el.offsetWidth, h: this.el.offsetHeight });
+      const w = size.w;
+      const hgt = size.h;
       const x = Math.round(Math.min(innerWidth - w - 8, Math.max(8, p.x - w / 2)));
       const below = p.y - hgt - 10 < 72;
       const y = Math.round(below ? p.y + 46 : p.y - hgt - 10);
-      this.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      const t = `translate3d(${x}px, ${y}px, 0)`;
+      if (t !== this.lastPos) {
+        this.lastPos = t;
+        this.el.style.transform = t;
+      }
     }
-    this.raf = requestAnimationFrame(this.follow);
   };
 
   render(): void {
     if (!this.id) return;
+    this.size = null;
     const a = this.ctx.agent(this.id);
     if (!a) {
       this.setTarget(null);

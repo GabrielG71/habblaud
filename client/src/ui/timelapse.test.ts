@@ -117,13 +117,16 @@ describe('timelapse: relógio dos painéis', () => {
     expect(ctx.now()).toBe(from);
 
     play.dispatchEvent(new Event('click'));
+    // o relógio anda a ~30 Hz (um passo a cada 32 ms de quadros de 16 ms), não a cada quadro do monitor
     vi.advanceTimersByTime(16);
-    expect(ctx.now()).toBe(from + 2_880);
-    expect(playback!.clock()).toBe(from + 2_880);
+    expect(ctx.now()).toBe(from);
+    vi.advanceTimersByTime(16);
+    expect(ctx.now()).toBe(from + 5_760);
+    expect(playback!.clock()).toBe(from + 5_760);
     const speeds = control('ui-seg ui-lapse__speed');
     speeds.children[0].dispatchEvent(new Event('click'));
-    vi.advanceTimersByTime(16);
-    expect(ctx.now()).toBe(from + 3_840);
+    vi.advanceTimersByTime(32);
+    expect(ctx.now()).toBe(from + 7_680);
     play.dispatchEvent(new Event('click'));
     range.value = '300';
     range.dispatchEvent(new Event('change'));
@@ -142,8 +145,8 @@ describe('timelapse: relógio dos painéis', () => {
     vi.advanceTimersByTime(120_000);
     expect(ctx.now()).toBe(from + 600_000);
     player.close();
-    expect(ctx.now()).toBe(live + 360_064);
+    expect(ctx.now()).toBe(live + 360_096);
     vi.advanceTimersByTime(2_000);
-    expect(ctx.now()).toBe(live + 362_064);
+    expect(ctx.now()).toBe(live + 362_096);
   });
 });
