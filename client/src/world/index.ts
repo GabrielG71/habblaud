@@ -7,6 +7,7 @@ import { DEFAULT_WORLD_OPTIONS, seasonalThemeFor, type Selection, type SocialEve
 import { loadWorldAssets, type WorldAssets } from './assets';
 import { Camera, overviewFrame } from './camera';
 import { createDebug, type WorldDebug } from './debug';
+import { createFramePacer, windowFocused } from './frame-pacer';
 import { BUILDING_H, COL_W } from './constants';
 import { RECEPTION_ID } from './layout/core';
 import { inRect } from './layout/geometry';
@@ -73,6 +74,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let mouse: { x: number; y: number } | null = null;
   let raf = 0;
   let lastTs = 0;
+  /** Teto de 60 quadros por segundo (15 com a janela sem foco): os quadros pulados deixam o dt acumular. */
+  const pacer = createFramePacer(windowFocused());
   let hiddenAt = 0;
   /** Escritório fora da tela (cidade aberta): sem laço de desenho nem teclado da câmera. */
   let suspended = false;
@@ -273,6 +276,9 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
 
   const loop = (ts: number) => {
     raf = requestAnimationFrame(loop);
+    // Quadro pulado: nem simula nem desenha. `lastTs` fica para trás de propósito, então o dt do próximo desenho
+    // leva o tempo todo que passou (mesma velocidade do mundo, menos trabalho por segundo).
+    if (!pacer.due(ts)) return;
     const real = Date.now();
     const realDt = lastTs ? Math.min(0.1, Math.max(0, (ts - lastTs) / 1000)) : 1 / 60;
     lastTs = ts;
@@ -333,6 +339,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     hiddenAt = 0;
   };
 
+  // Janela visível mas sem foco: desenha a 15 fps em vez de 60 (não congela); com foco volta a 60 na hora.
+  const onFocus = () => pacer.setFocused(true);
+  const onBlur = () => pacer.setFocused(false);
+
   // Botão direito numa sala (ou num agente dentro dela): a UI oferece renomear a sala.
   const onContextMenu = (e: MouseEvent) => {
     if (!roomMenuCbs.size) return;
@@ -353,6 +363,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   };
   canvas.addEventListener('contextmenu', onContextMenu);
   window.addEventListener('resize', resize);
+  window.addEventListener('focus', onFocus);
+  window.addEventListener('blur', onBlur);
   document.addEventListener('visibilitychange', onVisibility);
   resize();
   raf = requestAnimationFrame(loop);
@@ -470,6 +482,8 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       offSnapshot();
       detachInput();
       window.removeEventListener('resize', resize);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
       canvas.removeEventListener('contextmenu', onContextMenu);
       document.removeEventListener('visibilitychange', onVisibility);
       selectCbs.clear();

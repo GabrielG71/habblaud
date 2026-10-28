@@ -42,6 +42,11 @@ do meio (0.**3**.0).
   `.env.sample` e `.env.template`), chaves e certificados, `.npmrc`, `.netrc`, `.pgpass`, `credentials*`,
   `secrets.*` e `service-account*.json` ficam bloqueados; código como `token.service.ts` ou `RecuperarSenha.js` passa
   a abrir. As entregas continuam com a regra de antes.
+- **Menos CPU/GPU e bateria, sem mudar o visual.** O escritório (e a cidade) desenham no máximo 60 quadros por segundo,
+  mesmo em monitor de 100 Hz ou mais, e o tempo do mundo segue na mesma velocidade. Com a janela visível mas sem foco
+  (outra janela em uso), o desenho cai para 15 quadros por segundo em vez de parar, e volta a 60 ao focar. O pulso do
+  ponto "esperando" e o brilho do contador de pedidos pendentes passaram a animar só opacidade (sem repintar sombras
+  a cada quadro), com o mesmo aspecto, e as animações em laço ficam em pausa com a aba oculta.
 
 ### Corrigido
 

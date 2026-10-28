@@ -21,6 +21,7 @@ import { parseAwaySummary } from '../../../../shared/world/scene';
 import type { WorldStream, WorldStreamEvent } from '../../net/world-stream';
 import type { WorldOptions } from '../api';
 import { Camera } from '../camera';
+import { createFramePacer, windowFocused } from '../frame-pacer';
 import { PathFinder } from '../path/astar';
 import { h } from '../../ui/dom';
 import { worldErrorText } from '../../ui/world/world-model';
@@ -123,6 +124,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
   let visible = false;
   let raf = 0;
   let lastTs = 0;
+  const pacer = createFramePacer(windowFocused());
   let mouse: { x: number; y: number } | null = null;
   let keepAlive: ReturnType<typeof setInterval> | null = null;
   /** O chunk em que estou (ao trocar, os chunks fora dos 3×3 saem do estado). */
@@ -629,6 +631,8 @@ export function createCityScene(o: CitySceneOptions): CityScene {
 
   const loop = (ts: number) => {
     raf = requestAnimationFrame(loop);
+    // Teto de 60 fps (15 sem foco): `lastTs` só anda nos quadros desenhados, então o dt acumula e o tempo não muda.
+    if (!pacer.due(ts)) return;
     const gap = lastTs ? ts - lastTs : 16.7;
     const dt = lastTs ? Math.min(0.1, Math.max(0, gap / 1000)) : 1 / 60;
     lastTs = ts;
@@ -676,6 +680,9 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     }
   };
 
+  const onFocus = () => pacer.setFocused(true);
+  const onBlur = () => pacer.setFocused(false);
+
   const onVisibility = () => {
     lastTs = 0;
     input.clearKeys();
@@ -707,6 +714,9 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       lastTs = 0;
       raf = requestAnimationFrame(loop);
       window.addEventListener('resize', resize);
+      window.addEventListener('focus', onFocus);
+      window.addEventListener('blur', onBlur);
+      pacer.setFocused(windowFocused());
       document.addEventListener('visibilitychange', onVisibility);
       keepAlive = setInterval(() => {
         // dentro de um prédio, nenhum passo sai (lá dentro o servidor ignora e o tempo não conta para o afk)
@@ -729,6 +739,8 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       input.clearKeys();
       closeStream();
       window.removeEventListener('resize', resize);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
       document.removeEventListener('visibilitychange', onVisibility);
       if (keepAlive) clearInterval(keepAlive);
       keepAlive = null;

@@ -410,9 +410,37 @@
   --st: var(--st-working);
 }
 
+/* Esperando: o pulso anima só a opacidade (o compositor cuida, sem repintar a cada quadro). O anel+brilho de repouso
+   e o de pico são sombras fixas em dois pseudo-elementos que se alternam: repouso some enquanto o pico aparece. */
 .ui-status-dot.is-waiting {
   --st: var(--st-waiting);
-  animation: ui-pulse-dot 1.1s ease-in-out infinite;
+  position: relative;
+  box-shadow: none;
+}
+
+.ui-status-dot.is-waiting::before,
+.ui-status-dot.is-waiting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: 1.1s ease-in-out infinite;
+}
+
+.ui-status-dot.is-waiting::before {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--st) 22%, transparent),
+    0 0 8px color-mix(in srgb, var(--st) 55%, transparent);
+  animation-name: ui-pulse-dot-rest;
+}
+
+.ui-status-dot.is-waiting::after {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--st) 30%, transparent),
+    0 0 14px color-mix(in srgb, var(--st) 80%, transparent);
+  opacity: 0;
+  animation-name: ui-pulse-dot-peak;
 }
 
 .ui-status-dot.is-idle {
@@ -429,11 +457,15 @@
   box-shadow: none;
 }
 
-@keyframes ui-pulse-dot {
+@keyframes ui-pulse-dot-rest {
   50% {
-    box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--st) 30%, transparent),
-      0 0 14px color-mix(in srgb, var(--st) 80%, transparent);
+    opacity: 0;
+  }
+}
+
+@keyframes ui-pulse-dot-peak {
+  50% {
+    opacity: 1;
   }
 }
 
@@ -892,6 +924,20 @@
 .ui-counter--waiting.is-active {
   background: rgba(255, 181, 71, 0.16);
   box-shadow: inset 0 0 0 1px rgba(255, 181, 71, 0.55);
+  position: relative;
+}
+
+/* O brilho pulsante é uma sombra fixa num pseudo-elemento cuja opacidade pulsa (só opacity: sem repintar). */
+.ui-counter--waiting.is-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 181, 71, 0.9),
+    0 0 18px rgba(255, 181, 71, 0.35);
+  opacity: 0;
   animation: ui-waiting-glow 1.6s ease-in-out infinite;
 }
 
@@ -906,10 +952,15 @@
 
 @keyframes ui-waiting-glow {
   50% {
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 181, 71, 0.9),
-      0 0 18px rgba(255, 181, 71, 0.35);
+    opacity: 1;
   }
+}
+
+/* Aba oculta: nenhuma animação CSS gasta quadro (o Chrome já para de pintar, isto garante e evita o retorno em salto). */
+html.is-page-hidden *,
+html.is-page-hidden *::before,
+html.is-page-hidden *::after {
+  animation-play-state: paused !important;
 }
 
 /* Uso por conta */
