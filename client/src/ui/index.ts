@@ -196,6 +196,7 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
       return pty.enabled;
     },
     newSession: (cwd, account) => pty.newSession(cwd, account),
+    newWorktreeSession: (roomId, branch, account) => pty.newWorktreeSession(roomId, branch, account),
     open(id, opener) {
       const readOnly = !!store.snapshot?.meta.terminal && !store.replaying;
       if (pty.ptyOf(id) || (pty.enabled && !readOnly && ctx.agent(id)?.kind === 'main')) pty.openAgent(id);

@@ -10,7 +10,7 @@ import type { UiComponent, UiContext } from './context';
 import { h, iconButton, setHidden, setText } from './dom';
 import { ICONS } from './icons';
 import { maximizeButton, Movable } from './movable';
-import { closePty, createPty, stopAgent, takeoverAgent } from './ptyapi';
+import { closePty, createPty, createWorktreePty, stopAgent, takeoverAgent } from './ptyapi';
 import type { PtyPane } from './ptypane';
 import { TermActions } from './termactions';
 import { TermTabs } from './termtabs';
@@ -33,6 +33,7 @@ export interface PtyControl {
   close(): void;
   takeover(agentId: string): Promise<void>;
   newSession(cwd: string, account?: string): Promise<void>;
+  newWorktreeSession(roomId: string, branch: string, account?: string): Promise<string | undefined>;
   stop(agentId: string): Promise<void>;
 }
 
@@ -147,6 +148,13 @@ export class PtyPanel implements UiComponent, PtyControl {
   async newSession(cwd: string, account?: string): Promise<void> {
     const p = await createPty(cwd, account);
     if (p) this.show(p, true);
+  }
+
+  async newWorktreeSession(roomId: string, branch: string, account?: string): Promise<string | undefined> {
+    const p = await createWorktreePty(roomId, branch, account);
+    if (!p) return undefined;
+    this.show(p, true);
+    return p.agentId;
   }
 
   async stop(agentId: string): Promise<void> {

@@ -32,6 +32,11 @@ export function createPty(cwd: string, account?: string): Promise<PtyInfo | unde
   return postPty<PtyInfo>('/api/pty', { cwd, account, ...SIZE });
 }
 
+/** Cria a worktree `<sala>-wt/<branch>` (a partir da branch atual) e abre uma sessão nova nela. */
+export function createWorktreePty(room: string, branch: string, account?: string): Promise<PtyInfo | undefined> {
+  return postPty<PtyInfo>('/api/pty/worktree', { room, branch, account, ...SIZE });
+}
+
 /** Encerra a sessão noutro terminal e continua a mesma conversa aqui. */
 export function takeoverAgent(agentId: string): Promise<PtyInfo | undefined> {
   return postPty<PtyInfo>(`/api/agents/${encodeURIComponent(agentId)}/takeover`, SIZE);

@@ -215,6 +215,8 @@ export interface RoomInfo {
   /** Semente para cores/decoração determinísticas. */
   seed: number;
   createdAt: number;
+  /** Sala fixa (<dataDir>/escritorio.json); `git`: a pasta é a raiz de um repositório (dá para abrir worktrees). */
+  fixed?: { git?: true };
   /** Efeito visual temporário na sala (eventos do GitHub detectados nos transcripts; ver shared/github.ts). */
   effect?: RoomEffect;
 }

@@ -1,6 +1,8 @@
 // Rotas do terminal interativo (PtyManager, server/pty/manager.ts):
 //   GET  /api/pty                      estado do recurso e terminais abertos
 //   POST /api/pty                      {cwd, account?, cols?, rows?}: sessão nova do Claude Code
+//   POST /api/pty/worktree             {room, branch, account?, cols?, rows?}: cria <sala>-wt/<branch> (git worktree add) e
+//                                      abre nela uma sessão nova (só com deps.worktree; nunca apaga uma worktree)
 //   GET  /api/pty/:id/stream           SSE: reset (tela guardada) | data | exit
 //   POST /api/pty/:id/input|resize|close
 //   POST /api/agents/:id/stop          encerra o agente (aqui ou noutro terminal)
@@ -30,7 +32,12 @@ export function ptyRequestProblem(req: IncomingMessage): string | null {
   }
 }
 
-export function createPtyRoutes(ptys: PtyManager): (req: IncomingMessage, res: ServerResponse, path: string) => void {
+export interface PtyRouteDeps {
+  /** Garante a worktree da sala para a branch e devolve o caminho (server/pty/worktree.ts). */
+  worktree?: (room: unknown, branch: unknown) => Promise<string>;
+}
+
+export function createPtyRoutes(ptys: PtyManager, deps: PtyRouteDeps = {}): (req: IncomingMessage, res: ServerResponse, path: string) => void {
   const fail = (res: ServerResponse, err: unknown) => {
     if (res.headersSent) return void res.destroy();
     if (err instanceof HttpError || err instanceof PtyError) sendJson(res, err.status, { error: err.message });
@@ -66,6 +73,13 @@ export function createPtyRoutes(ptys: PtyManager): (req: IncomingMessage, res: S
         return noContent(res);
       }
       return sendJson(res, 201, await ptys.takeover(id, { cols: body?.cols, rows: body?.rows }));
+    }
+    if (path === '/api/pty/worktree') {
+      if (!deps.worktree) throw new HttpError(404, tr('rota desconhecida'));
+      if (method !== 'POST') return notAllowed(res, 'POST');
+      const body = (await readJson(req)) as Record<string, unknown>;
+      const cwd = await deps.worktree(body?.room, body?.branch);
+      return sendJson(res, 201, ptys.create({ cwd, account: body?.account, cols: body?.cols, rows: body?.rows }));
     }
     const [rawId, act] = path.slice('/api/pty'.length).split('/').filter(Boolean);
     if (!rawId) {

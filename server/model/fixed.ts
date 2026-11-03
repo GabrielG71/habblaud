@@ -5,7 +5,8 @@
 //
 // Todos opcionais além de `path`: `gestor` é o projeto que o "Ligar" abre pela ponte do VS Code; `nome` e `prompt`
 // (caminho absoluto de um .md) vão para o Claude Code que o "Ligar aqui" abre no terminal do Habblaud.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { errMsg, log } from '../log';
 import { tr } from '../../shared/i18n';
 import { normalizeCwd } from './rooms';
@@ -19,6 +20,8 @@ export interface FixedRoom {
   nome?: string;
   /** Briefing do gestor (`claude --append-system-prompt-file`): caminho absoluto de um .md. */
   prompt?: string;
+  /** A pasta é a raiz de um repositório git (`.git` é diretório): dá para abrir worktrees `<pasta>-wt/<branch>`. */
+  git?: true;
 }
 
 const GESTOR_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
@@ -47,9 +50,26 @@ export function parseFixedRooms(raw: unknown): FixedRoom[] {
   return out;
 }
 
+/** A sala fixa de uma pasta: a própria sala ou uma worktree dela (`<sala>-wt/<branch>`). */
+export function fixedRoomFor(rooms: readonly FixedRoom[], cwd: string): FixedRoom | undefined {
+  const c = normalizeCwd(cwd);
+  return rooms.find((r) => r.id === c || c.startsWith(`${r.id}-wt/`));
+}
+
+/** Marca `git: true` nas salas cuja pasta é a raiz de um repositório (`.git` diretório; worktree tem `.git` arquivo). */
+function withGit(rooms: FixedRoom[]): FixedRoom[] {
+  return rooms.map((r) => {
+    try {
+      return statSync(join(r.path, '.git')).isDirectory() ? { ...r, git: true as const } : r;
+    } catch {
+      return r;
+    }
+  });
+}
+
 /** Argumentos do Claude Code aberto na pasta de uma sala fixa: o nome da sessão e o briefing do gestor (se o arquivo existe). */
 export function gestorArgs(rooms: readonly FixedRoom[], cwd: string): string[] {
-  const room = rooms.find((r) => r.id === normalizeCwd(cwd));
+  const room = fixedRoomFor(rooms, cwd);
   if (!room) return [];
   const args = room.nome ? ['-n', room.nome] : [];
   if (room.prompt && existsSync(room.prompt)) args.push('--append-system-prompt-file', room.prompt);
@@ -58,7 +78,7 @@ export function gestorArgs(rooms: readonly FixedRoom[], cwd: string): string[] {
 
 export function loadFixedRooms(file: string): FixedRoom[] {
   try {
-    return parseFixedRooms(JSON.parse(readFileSync(file, 'utf8')));
+    return withGit(parseFixedRooms(JSON.parse(readFileSync(file, 'utf8'))));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') log.warn(tr('escritorio.json ilegível ({0}); sem salas fixas.', [errMsg(err)]));
     return [];

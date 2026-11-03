@@ -12,6 +12,10 @@ do meio (0.**3**.0).
 
 ### Adicionado
 
+- **Várias frentes no mesmo Gestor:** a faixa de abas do terminal ganhou um "+" (sala fixa, terminal interativo
+  ligado) que abre outra sessão do Gestor na mesma pasta ou numa worktree nova em `<pasta>-wt/<branch>`, criada a
+  partir da branch atual (`POST /api/pty/worktree`, só no próprio computador). As abas podem ser renomeadas com duplo
+  clique no nome (só neste navegador), fechar uma aba encerra só aquela sessão, e o Habblaud nunca apaga uma worktree.
 - **Aparência dos Gestores:** cada Gestor (a sessão principal de um projeto) pode ganhar um visual próprio, lido de
   `config/gestores.json` (por `gestor` da sala fixa ou por `path`). Só a aparência muda: nome, sala e semente continuam
   os mesmos, e quem não está no arquivo fica como sempre. O arquivo fica fora do git; `config/gestores.example.json` é o
@@ -38,6 +42,8 @@ do meio (0.**3**.0).
 
 ### Alterado
 
+- **Sessão numa worktree conta como a sala fixa:** uma sessão aberta em `<sala>-wt/...` de uma sala fixa fica na própria
+  sala (com o briefing do Gestor), e "Assumir" retoma a conversa na pasta da worktree, não na da sala.
 - **Explorador de arquivos: a lista de segredos ficou estreita.** Só `.env`/`.env.*` (menos `.env.example`,
   `.env.sample` e `.env.template`), chaves e certificados, `.npmrc`, `.netrc`, `.pgpass`, `credentials*`,
   `secrets.*` e `service-account*.json` ficam bloqueados; código como `token.service.ts` ou `RecuperarSenha.js` passa

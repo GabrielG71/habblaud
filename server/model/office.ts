@@ -29,7 +29,7 @@ import { DemoSimulator } from '../../shared/demo/simulator';
 import { describeGitHubEvent, githubEventKey, RoomEffects, type GitHubEvent } from '../../shared/github';
 import { hash32 } from '../../shared/hash';
 import { applyPermission } from '../permissions/registry';
-import type { FixedRoom } from './fixed';
+import { fixedRoomFor, type FixedRoom } from './fixed';
 import { findMember, pickMember, type TeamMember } from '../../shared/team';
 import type { GestorLook } from '../../shared/gestor-look';
 import { findGestorLook } from './gestor-look';
@@ -133,6 +133,8 @@ export interface SubInput {
 
 interface AgentRecord {
   info: AgentInfo;
+  /** Pasta real da sessão quando difere da sala (worktree `<sala>-wt/<branch>` de uma sala fixa). */
+  cwd?: string;
   history: Activity[];
   removeAt?: number;
   /** Início do turno atual (para "Concluiu em X"). */
@@ -305,6 +307,12 @@ export class Office {
     return this.rooms.get(roomId)?.path;
   }
 
+  /** Pasta real de um agente: a da worktree, se a sessão abriu numa, senão a da sala. */
+  agentCwd(id: string): string | undefined {
+    const rec = this.agents.get(id);
+    return rec && (rec.cwd ?? this.roomPath(rec.info.roomId));
+  }
+
   roomName(roomId: string): string {
     return this.roomNames.get(roomId) ?? roomId.split('/').filter(Boolean).pop() ?? roomId;
   }
@@ -335,7 +343,9 @@ export class Office {
       this.setStatus(p.id, p.status, p.waitingFor);
       return;
     }
-    const roomId = normalizeCwd(p.cwd);
+    // Sessão numa worktree de uma sala fixa conta como a sala fixa.
+    const fixedRoom = fixedRoomFor(this.deps.fixedRooms?.() ?? [], p.cwd);
+    const roomId = fixedRoom?.id ?? normalizeCwd(p.cwd);
     this.ensureRoom(roomId, now);
     const chosen = this.roomCharacter(roomId, p.id, p.sessionId);
     // A mesma sessão retomada noutro processo (ex.: "Assumir aqui") mantém o nome, mesmo com o processo antigo
@@ -367,6 +377,7 @@ export class Office {
     this.applyGestorLook(info);
     if (p.status === 'waiting') info.waitingFor = p.waitingFor ?? tr('responder no terminal');
     const rec: AgentRecord = { info, history: [] };
+    if (normalizeCwd(p.cwd) !== roomId) rec.cwd = p.cwd;
     if (p.status === 'working') rec.turnStart = now;
     this.agents.set(p.id, rec);
     const acc = this.deps.accountName(p.account);
@@ -991,6 +1002,7 @@ export class Office {
     for (const [id, r] of this.rooms) entries.set(id, r);
     for (const r of this.demoSnap?.rooms ?? []) entries.set(r.id, { path: r.path, createdAt: r.createdAt });
     this.slots.sync(entries.keys(), now);
+    const fixedById = new Map(fixed.map((f) => [f.id, f]));
     const rooms: RoomInfo[] = [...entries]
       .map(([id, r]) => ({
         id,
@@ -999,6 +1011,7 @@ export class Office {
         slot: this.slots.slotOf(id) ?? 0,
         seed: hash32(id),
         createdAt: r.createdAt,
+        ...(fixedById.has(id) ? { fixed: { ...(fixedById.get(id)!.git ? { git: true as const } : {}) } } : {}),
       }))
       .sort((a, b) => a.slot - b.slot);
     // festa/alarme (eventos do GitHub): das salas reais ou do demo

@@ -21,6 +21,7 @@ import { errMsg, log } from './log';
 import { NameStore } from './model/names';
 import { Office } from './model/office';
 import { gestorArgs, loadFixedRooms } from './model/fixed';
+import { ensureWorktree } from './pty/worktree';
 import { loadTeam, teamFile } from './model/team';
 import { gestorLooksFile, loadGestorLooks } from './model/gestor-look';
 import { RoomAliases } from './model/room-aliases';
@@ -319,7 +320,7 @@ const ptys = spawnPty
       accounts: () => accounts.entries().map((a) => ({ id: a.id, dir: a.dir, isDefault: isDefaultDir(a.dir, config.home) })),
       agent: (id) => {
         const a = office.get(id);
-        return a && { id: a.id, kind: a.kind, account: a.account, sessionId: a.sessionId, cwd: office.roomPath(a.roomId) };
+        return a && { id: a.id, kind: a.kind, account: a.account, sessionId: a.sessionId, cwd: office.agentCwd(a.id) };
       },
       onChange: () => office.markDirty(),
       createScreen: ptyScreen,
@@ -370,7 +371,7 @@ const api = createApiHandler({
   timeline: createTimelineHandler({ dir: timelineDir, recording: !!timeline }),
   permissions: permissions ? createPermissionRoutes(permissions) : undefined,
   messages: messages ? createMessageRoutes(messages) : undefined,
-  pty: ptys ? createPtyRoutes(ptys) : undefined,
+  pty: ptys ? createPtyRoutes(ptys, { worktree: (room, branch) => ensureWorktree(fixedRooms, room, branch) }) : undefined,
   browse: createFilesRoutes(() => fixedRooms),
   spawn,
   attachments,

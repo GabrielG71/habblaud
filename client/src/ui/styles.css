@@ -8265,12 +8265,124 @@ html.is-replay #world {
 .ui-ttabs {
   display: flex;
   flex: none;
+  align-items: flex-end;
   gap: 2px;
   padding: 4px 8px 0;
-  overflow-x: auto;
   background: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid var(--ui-line);
+}
+
+.ui-ttabs[hidden] {
+  display: none;
+}
+
+.ui-ttabs__list {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 2px;
+  overflow-x: auto;
   scrollbar-width: thin;
+}
+
+/* "+" no fim da faixa: outra frente do gestor (mesma pasta ou worktree nova). */
+.ui-ttabs__add {
+  flex: none;
+  align-self: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 0 3px 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ui-ttabs__add:hover,
+.ui-ttabs__add[aria-expanded='true'] {
+  color: var(--ui-text);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--ui-line);
+}
+
+.ui-ttabs__add[hidden],
+.ui-ttabs__pop[hidden] {
+  display: none;
+}
+
+.ui-ttabs__pop {
+  position: fixed;
+  z-index: 60;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--ui-bg-solid);
+  border: 1px solid var(--ui-line-strong);
+  box-shadow: 0 20px 48px rgba(5, 7, 12, 0.55);
+  color: var(--ui-text);
+  font: 12.5px/1.4 var(--font-ui);
+}
+
+.ui-ttabs__pop .ui-btn {
+  justify-content: center;
+}
+
+.ui-ttabs__pop .ui-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-ttabs__sep {
+  height: 1px;
+  background: var(--ui-line);
+}
+
+.ui-ttabs__label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ui-muted);
+}
+
+.ui-ttabs__branch,
+.ui-ttab__edit {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ui-text);
+  font: inherit;
+}
+
+.ui-ttabs__branch.is-bad {
+  border-color: #ff8f8f;
+}
+
+.ui-ttab__edit {
+  width: 110px;
+  padding: 0 4px;
+}
+
+.ui-ttabs__hint,
+.ui-ttabs__err {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--ui-faint);
+}
+
+.ui-ttabs__err {
+  color: #ff8f8f;
+}
+
+.ui-ttabs__err[hidden] {
+  display: none;
 }
 
 .ui-ttab {

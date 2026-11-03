@@ -28,6 +28,8 @@ export interface TerminalRouter {
   readonly interactiveEnabled: boolean;
   /** Sessão nova do Claude Code na pasta, aberta no terminal interativo. */
   newSession(cwd: string, account?: string): Promise<void>;
+  /** Frente nova numa worktree da sala (`<sala>-wt/<branch>`); devolve o id do agente aberto. */
+  newWorktreeSession(roomId: string, branch: string, account?: string): Promise<string | undefined>;
 }
 
 export type HelpSection = 'usage' | 'codex';

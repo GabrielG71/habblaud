@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gestorArgs, parseFixedRooms } from './fixed';
+import { fixedRoomFor, gestorArgs, parseFixedRooms } from './fixed';
 import { NameStore } from './names';
 import { Office } from './office';
 
@@ -58,5 +58,32 @@ describe('salas fixas', () => {
     // briefing que não existe não vai para o claude
     expect(gestorArgs(rooms, '/p/hub')).toEqual([]);
     expect(gestorArgs(rooms, '/outra')).toEqual([]);
+  });
+
+  it('a worktree <sala>-wt/<branch> conta como a sala fixa; nome parecido, não', () => {
+    const rooms = parseFixedRooms({ salas: [{ path: '/x/habblaud', nome: 'Gestor Habblaud', prompt: import.meta.filename.replace(/fixed\.test\.ts$/, '../README.md') }] });
+    expect(fixedRoomFor(rooms, '/x/habblaud')?.id).toBe('/x/habblaud');
+    expect(fixedRoomFor(rooms, '/x/habblaud/')?.id).toBe('/x/habblaud');
+    expect(fixedRoomFor(rooms, '/x/habblaud-wt/feat/a')?.id).toBe('/x/habblaud');
+    expect(fixedRoomFor(rooms, '/x/habblaud-wtx/a')).toBeUndefined();
+    expect(fixedRoomFor(rooms, '/x/habblaud-wt')).toBeUndefined();
+    expect(gestorArgs(rooms, '/x/habblaud-wt/feat/a')).toEqual(['-n', 'Gestor Habblaud', '--append-system-prompt-file', rooms[0].prompt]);
+    expect(gestorArgs(rooms, '/x/habblaud-wtx/a')).toEqual([]);
+  });
+
+  it('sessão aberta numa worktree fica na sala fixa e guarda a pasta real; a sala diz se é git', () => {
+    const names = new NameStore(null);
+    const deps = { names, version: 't', startedAt: 0, accounts: () => [], sources: () => [], accountName: () => undefined };
+    const office = new Office({ ...deps, fixedRooms: () => [{ id: '/p/hab', path: '/p/hab', git: true }, { id: '/p/tcr', path: '/p/tcr' }] });
+    office.addMain({ id: 'acc:1', account: 'acc', sessionId: 's1', cwd: '/p/hab-wt/feat/b', role: 'Agente principal', startedAt: 0, status: 'working' });
+    office.addMain({ id: 'acc:2', account: 'acc', sessionId: 's2', cwd: '/p/hab', role: 'Agente principal', startedAt: 0, status: 'working' });
+    office.markDirty();
+    const snap = office.commit().snapshot;
+    expect(snap.rooms.map((r) => r.id)).toEqual(['/p/hab', '/p/tcr']);
+    expect(snap.rooms.map((r) => r.fixed)).toEqual([{ git: true }, {}]);
+    expect(snap.agents.filter((a) => a.roomId === '/p/hab').map((a) => a.id)).toEqual(['acc:1', 'acc:2']);
+    expect(office.agentCwd('acc:1')).toBe('/p/hab-wt/feat/b');
+    expect(office.agentCwd('acc:2')).toBe('/p/hab');
+    expect(office.agentCwd('nada')).toBeUndefined();
   });
 });
