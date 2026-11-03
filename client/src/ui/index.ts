@@ -372,7 +372,11 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
     applyLayout();
     invalidate();
   });
+  // Aba oculta: as animações CSS em laço (pulso de "esperando", relógio de areia...) ficam em pausa (ver styles.css).
+  const syncPageHidden = () => document.documentElement.classList.toggle('is-page-hidden', document.hidden);
+  syncPageHidden();
   document.addEventListener('visibilitychange', () => {
+    syncPageHidden();
     if (!document.hidden) invalidate();
   });
   setInterval(() => {

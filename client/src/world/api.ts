@@ -71,6 +71,11 @@ export interface WorldApi {
   /** Posição na tela (CSS px, relativo à viewport) logo acima da cabeça do personagem, ou null se não visível. */
   screenPositionOf(agentId: string): { x: number; y: number } | null;
   /**
+   * Chamado logo depois de cada quadro desenhado, no ritmo do mundo (30/10/8 fps, ver frame-pacer.ts). É por aqui que
+   * as peças de DOM que seguem o canvas (dica sobre o agente, dica do elevador) se mexem, sem laço de rAF próprio.
+   */
+  onFrame(cb: () => void): () => void;
+  /**
    * (Opcional, aditivo) Área da tela coberta por painéis da UI, em px CSS. O mundo passa a enquadrar
    * (visão geral) e centralizar (focusAgent/focusRoom/seguir) dentro da área livre.
    */

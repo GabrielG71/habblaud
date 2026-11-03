@@ -123,7 +123,8 @@ export class Particles {
   }
 
   update(dt: number): void {
-    const d = Math.min(0.1, Math.max(0, dt));
+    // teto acima de 0,1 s: com 8–10 fps o intervalo passa disso e as partículas não podem cair em câmera lenta
+    const d = Math.min(0.25, Math.max(0, dt));
     let i = 0;
     while (i < this.n) {
       this.age[i] += d;

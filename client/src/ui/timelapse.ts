@@ -423,6 +423,12 @@ export class TimelapsePlayer implements UiComponent {
     const r = this.replay;
     if (!this.playing || !r) return;
     const real = performance.now();
+    // O relógio anda por tempo real (dt acumulado), então não precisa de um passo por quadro do monitor: ~30 Hz com
+    // foco, ~8 Hz sem (o mundo desenha nesse ritmo, ver world/frame-pacer.ts). `lastReal` só anda nos passos dados.
+    if (real - this.lastReal < (typeof document.hasFocus === 'function' && !document.hasFocus() ? 120 : 30)) {
+      this.raf = requestAnimationFrame(this.loop);
+      return;
+    }
     const dt = Math.min(250, Math.max(0, real - this.lastReal));
     this.lastReal = real;
     this.t = Math.min(r.to, this.t + dt * this.speed);

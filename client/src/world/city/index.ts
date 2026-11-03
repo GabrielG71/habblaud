@@ -21,6 +21,7 @@ import { parseAwaySummary } from '../../../../shared/world/scene';
 import type { WorldStream, WorldStreamEvent } from '../../net/world-stream';
 import type { WorldOptions } from '../api';
 import { Camera } from '../camera';
+import { createFramePacer, windowFocused } from '../frame-pacer';
 import { PathFinder } from '../path/astar';
 import { h } from '../../ui/dom';
 import { worldErrorText } from '../../ui/world/world-model';
@@ -52,6 +53,9 @@ const KEEPALIVE_MS = 30_000;
 export const ENTER_RADIUS = 2;
 /** Um aviso até isto depois de um `enter` é a resposta da porta (fechado, cheio, longe...). */
 const DOOR_NOTICE_MS = 5_000;
+/** Teto do dt de um quadro (s) e maior passo do movimento (s): com poucos quadros por segundo o intervalo passa de 0,1 s. */
+const MAX_DT = 0.25;
+const SIM_STEP = 0.05;
 
 class CityCamera extends Camera {
   override levels(): number[] {
@@ -123,6 +127,10 @@ export function createCityScene(o: CitySceneOptions): CityScene {
   let visible = false;
   let raf = 0;
   let lastTs = 0;
+  // Ritmo de desenho (frame-pacer.ts): 30 fps com atividade, 10 ocioso, 8 sem foco; `poke` sobe de ritmo.
+  const pacer = createFramePacer(windowFocused());
+  const poke = () => pacer.poke();
+  camera.onActivity = poke;
   let mouse: { x: number; y: number } | null = null;
   let keepAlive: ReturnType<typeof setInterval> | null = null;
   /** O chunk em que estou (ao trocar, os chunks fora dos 3×3 saem do estado). */
@@ -226,6 +234,7 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     }
     camera.setView(w, hh, dpr);
     camera.insets = { top: o.topInset(), right: 0, bottom: 0, left: 0 };
+    poke();
   };
 
   // ------------------------------------------------------------------ meu jogador
@@ -441,6 +450,8 @@ export function createCityScene(o: CitySceneOptions): CityScene {
   const offline = () => tr('Sem conexão com o Habblaud World agora; o Habblaud tenta de novo sozinho.');
 
   const onStream = (ev: WorldStreamEvent) => {
+    // Gente entrando, saindo ou andando na rua: o que chega do servidor é o que mexe na cena.
+    poke();
     switch (ev.type) {
       case 'snapshot': {
         state.applySnapshot(ev.snapshot, performance.now());
@@ -629,8 +640,11 @@ export function createCityScene(o: CitySceneOptions): CityScene {
 
   const loop = (ts: number) => {
     raf = requestAnimationFrame(loop);
+    // Teto de 60 fps (15 sem foco): `lastTs` só anda nos quadros desenhados, então o dt acumula e o tempo não muda.
+    if (!pacer.due(ts)) return;
     const gap = lastTs ? ts - lastTs : 16.7;
-    const dt = lastTs ? Math.min(0.1, Math.max(0, gap / 1000)) : 1 / 60;
+    // Com 8–10 fps o intervalo passa de 0.1 s: o teto é mais alto para o mundo não andar em câmera lenta.
+    const dt = lastTs ? Math.min(MAX_DT, Math.max(0, gap / 1000)) : 1 / 60;
     lastTs = ts;
     rafGaps.push(gap);
     if (rafGaps.length > 240) rafGaps.shift();
@@ -640,7 +654,11 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       if (o.canvas.clientWidth !== camera.viewW || o.canvas.clientHeight !== camera.viewH || dpr !== camera.dpr) resize();
       const self = state.me;
       if (me && self && !resuming) {
-        me.update(dt, input.intent());
+        const intent = input.intent();
+        // passos curtos (≤ 1/20 s): colisão e caminho se comportam como a 20+ fps mesmo com poucos quadros
+        const steps = Math.max(1, Math.ceil(dt / SIM_STEP));
+        for (let i = 0; i < steps; i++) me.update(dt / steps, intent);
+        if (me.moving || me.hasPath || intent.dx || intent.dy) poke();
         sender?.tick(now, me);
         // o servidor não avisa quando deixa de assinar: ao trocar de chunk, saem os prédios fora dos 3×3
         const c = chunkOf(blockAt(me.x, me.y));
@@ -652,7 +670,11 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       }
       social?.frame(now, dt);
       const target = following && me ? camera.centerFor(me.x * TILE, me.y * TILE - 12, camera.zoom) : null;
+      const cx = camera.x;
+      const cy = camera.y;
+      const cz = camera.zoom;
       camera.update(Date.now(), target, dt);
+      if (camera.x !== cx || camera.y !== cy || camera.zoom !== cz || camera.animating) poke();
       const door = me ? nearestDoor(me.x, me.y, (lot) => !!state.buildingAt(lot), ENTER_RADIUS) : null;
       renderer.frame(now, dt, o.options(), me && self ? { player: me, self } : null, {
         building: hovered?.type === 'building' ? hovered.id : cards.kind === 'building' ? cards.id : null,
@@ -676,8 +698,12 @@ export function createCityScene(o: CitySceneOptions): CityScene {
     }
   };
 
+  const onFocus = () => pacer.setFocused(true);
+  const onBlur = () => pacer.setFocused(false);
+
   const onVisibility = () => {
     lastTs = 0;
+    poke();
     input.clearKeys();
     // de volta à aba: o próximo tick reenvia a posição, mesmo que algo tenha ficado preso enquanto ela estava escondida
     if (!document.hidden) sender?.reset();
@@ -706,7 +732,13 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       openStream();
       lastTs = 0;
       raf = requestAnimationFrame(loop);
+      o.canvas.addEventListener('pointermove', poke, { passive: true });
+      o.canvas.addEventListener('pointerdown', poke, { passive: true });
+      o.canvas.addEventListener('wheel', poke, { passive: true });
       window.addEventListener('resize', resize);
+      window.addEventListener('focus', onFocus);
+      window.addEventListener('blur', onBlur);
+      pacer.setFocused(windowFocused());
       document.addEventListener('visibilitychange', onVisibility);
       keepAlive = setInterval(() => {
         // dentro de um prédio, nenhum passo sai (lá dentro o servidor ignora e o tempo não conta para o afk)
@@ -728,7 +760,12 @@ export function createCityScene(o: CitySceneOptions): CityScene {
       social?.hide();
       input.clearKeys();
       closeStream();
+      o.canvas.removeEventListener('pointermove', poke);
+      o.canvas.removeEventListener('pointerdown', poke);
+      o.canvas.removeEventListener('wheel', poke);
       window.removeEventListener('resize', resize);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
       document.removeEventListener('visibilitychange', onVisibility);
       if (keepAlive) clearInterval(keepAlive);
       keepAlive = null;

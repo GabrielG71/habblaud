@@ -5,6 +5,8 @@
 
 .ui-root {
   --ui-bg: rgba(18, 21, 29, 0.85);
+  /* Painéis sobre o mundo: sem backdrop-filter (o blur re-borrava a área a cada quadro do canvas), então o fundo é mais denso. */
+  --ui-bg-glass: rgba(18, 21, 29, 0.94);
   --ui-bg-solid: rgba(20, 24, 33, 0.97);
   --ui-bg-soft: rgba(255, 255, 255, 0.035);
   --ui-bg-hover: rgba(255, 255, 255, 0.06);
@@ -165,9 +167,8 @@
 }
 
 .ui-panel {
-  background: var(--ui-bg);
-  -webkit-backdrop-filter: blur(14px) saturate(1.25);
-  backdrop-filter: blur(14px) saturate(1.25);
+  background: var(--ui-bg-glass);
+  contain: layout;
   border: 1px solid var(--ui-line);
   border-radius: var(--radius);
   box-shadow:
@@ -410,9 +411,39 @@
   --st: var(--st-working);
 }
 
+/* Animações em laço usam steps(): o Chrome só acorda a cada degrau, e um ease contínuo mantém quadros de tela cheia a
+   cada vsync (medido: ~15% de CPU para um único ponto pulsando, contra ~3% em degraus).
+   Esperando: o pulso anima só a opacidade (o compositor cuida, sem repintar a cada quadro). O anel+brilho de repouso
+   e o de pico são sombras fixas em dois pseudo-elementos que se alternam: repouso some enquanto o pico aparece. */
 .ui-status-dot.is-waiting {
   --st: var(--st-waiting);
-  animation: ui-pulse-dot 1.1s ease-in-out infinite;
+  position: relative;
+  box-shadow: none;
+}
+
+.ui-status-dot.is-waiting::before,
+.ui-status-dot.is-waiting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: 1.1s steps(3) infinite;
+}
+
+.ui-status-dot.is-waiting::before {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--st) 22%, transparent),
+    0 0 8px color-mix(in srgb, var(--st) 55%, transparent);
+  animation-name: ui-pulse-dot-rest;
+}
+
+.ui-status-dot.is-waiting::after {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--st) 30%, transparent),
+    0 0 14px color-mix(in srgb, var(--st) 80%, transparent);
+  opacity: 0;
+  animation-name: ui-pulse-dot-peak;
 }
 
 .ui-status-dot.is-idle {
@@ -429,11 +460,15 @@
   box-shadow: none;
 }
 
-@keyframes ui-pulse-dot {
+@keyframes ui-pulse-dot-rest {
   50% {
-    box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--st) 30%, transparent),
-      0 0 14px color-mix(in srgb, var(--st) 80%, transparent);
+    opacity: 0;
+  }
+}
+
+@keyframes ui-pulse-dot-peak {
+  50% {
+    opacity: 1;
   }
 }
 
@@ -602,9 +637,8 @@
   gap: 12px;
   height: var(--top-h);
   padding: 0 10px 0 8px;
-  background: var(--ui-bg);
-  -webkit-backdrop-filter: blur(14px) saturate(1.25);
-  backdrop-filter: blur(14px) saturate(1.25);
+  background: var(--ui-bg-glass);
+  contain: layout;
   border-bottom: 1px solid var(--ui-line);
   box-shadow: 0 8px 24px rgba(5, 7, 12, 0.22);
 }
@@ -892,7 +926,21 @@
 .ui-counter--waiting.is-active {
   background: rgba(255, 181, 71, 0.16);
   box-shadow: inset 0 0 0 1px rgba(255, 181, 71, 0.55);
-  animation: ui-waiting-glow 1.6s ease-in-out infinite;
+  position: relative;
+}
+
+/* O brilho pulsante é uma sombra fixa num pseudo-elemento cuja opacidade pulsa (só opacity: sem repintar). */
+.ui-counter--waiting.is-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 181, 71, 0.9),
+    0 0 18px rgba(255, 181, 71, 0.35);
+  opacity: 0;
+  animation: ui-waiting-glow 1.6s steps(3) infinite;
 }
 
 .ui-counter--waiting.is-active .ui-counter__value,
@@ -906,10 +954,15 @@
 
 @keyframes ui-waiting-glow {
   50% {
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 181, 71, 0.9),
-      0 0 18px rgba(255, 181, 71, 0.35);
+    opacity: 1;
   }
+}
+
+/* Aba oculta: nenhuma animação CSS gasta quadro (o Chrome já para de pintar, isto garante e evita o retorno em salto). */
+html.is-page-hidden *,
+html.is-page-hidden *::before,
+html.is-page-hidden *::after {
+  animation-play-state: paused !important;
 }
 
 /* Uso por conta */
@@ -2580,9 +2633,20 @@
   background:
     linear-gradient(90deg, rgba(255, 181, 71, 0.16), rgba(255, 181, 71, 0.04)),
     var(--ui-bg-solid);
-  animation:
-    ui-toast-in 0.34s var(--ease) both,
-    ui-toast-alert 1.8s ease-in-out 0.4s infinite;
+  animation: ui-toast-in 0.34s var(--ease) both;
+  position: relative;
+}
+
+/* Anel âmbar que pulsa por dentro (o toast corta o que sai da caixa): só opacity, sem animar box-shadow. */
+.ui-toast--alert::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 3px rgba(255, 181, 71, 0.2);
+  opacity: 0;
+  animation: ui-toast-alert 1.8s steps(3) 0.4s infinite;
 }
 
 .ui-toast.is-bump {
@@ -2624,10 +2688,7 @@
 
 @keyframes ui-toast-alert {
   50% {
-    box-shadow:
-      inset 3px 0 0 var(--lvl),
-      0 0 0 3px rgba(255, 181, 71, 0.18),
-      0 12px 28px rgba(5, 7, 12, 0.45);
+    opacity: 1;
   }
 }
 
@@ -2913,9 +2974,7 @@
 }
 
 .ui-dialog::backdrop {
-  background: rgba(8, 10, 16, 0.55);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background: rgba(8, 10, 16, 0.62);
 }
 
 @keyframes ui-dialog-in {
@@ -3492,7 +3551,7 @@
   background: color-mix(in srgb, var(--st) 40%, #223038);
   /* Silhueta de ampulheta (o recorte some com o brilho; a forma já distingue o estado). */
   clip-path: polygon(0 0, 100% 0, 100% 16%, 62% 50%, 100% 84%, 100% 100%, 0 100%, 0 84%, 38% 50%, 0 16%);
-  animation: ui-dot-flip 2.4s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+  animation: ui-dot-flip 2.4s steps(4) infinite;
 }
 
 .ui-status-dot.is-shell::before,
@@ -3546,23 +3605,25 @@
   }
 }
 
-/* Ampulheta (ícone em pixels ou ⏳) virando a cada 1,2 s, como a do escritório. */
+/* Ampulheta (ícone em pixels ou ⏳) virando a cada 1,2 s, como a do escritório. `transform` + will-change (e não a
+   propriedade `rotate`): girar o emoji colorido com `rotate` custava ~16% de CPU em repinturas, contra ~0 assim. */
 .ui-hourglass .ui-px-icon,
 .ui-activity.is-shell .ui-activity__icon {
-  animation: ui-hourglass-turn 2.4s cubic-bezier(0.5, 0, 0.3, 1.3) infinite;
+  animation: ui-hourglass-turn 2.4s steps(4) infinite;
+  will-change: transform;
 }
 
 @keyframes ui-hourglass-turn {
   0%,
   40% {
-    rotate: 0deg;
+    transform: rotate(0deg);
   }
   50%,
   90% {
-    rotate: 180deg;
+    transform: rotate(180deg);
   }
   100% {
-    rotate: 360deg;
+    transform: rotate(360deg);
   }
 }
 
@@ -3951,7 +4012,7 @@
     scrollbar-width: none;
   }
 
-  /* Sem ficar presa à rolagem da fila: a dica se ancora na barra (o backdrop-filter dela é o bloco de contenção). */
+  /* Sem ficar presa à rolagem da fila: a dica se ancora na barra (o `contain: layout` dela é o bloco de contenção). */
   .ui-root.has-usage-row .ui-usage-tip {
     position: fixed;
     top: calc(var(--top-h) + 6px);
@@ -4527,8 +4588,7 @@
   overflow: hidden;
   border-radius: var(--radius);
   background: rgba(10, 12, 18, 0.96);
-  -webkit-backdrop-filter: blur(14px) saturate(1.25);
-  backdrop-filter: blur(14px) saturate(1.25);
+  contain: layout;
   border: 1px solid var(--ui-line-strong);
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.35),
@@ -7844,7 +7904,19 @@ html.is-replay #world {
 .ui-dictate.is-recording {
   border-color: var(--ui-danger, #ff8a8a);
   color: var(--ui-danger, #ff8a8a);
-  animation: ui-dictate-pulse 1.2s ease-in-out infinite;
+  position: relative;
+}
+
+/* O anel do pulso é uma sombra fixa num pseudo-elemento cuja opacidade pulsa (só opacity: sem repintar). */
+.ui-dictate.is-recording::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-danger, #ff8a8a) 25%, transparent);
+  opacity: 0;
+  animation: ui-dictate-pulse 1.2s steps(3) infinite;
 }
 
 .ui-dictate.is-working {
@@ -7853,7 +7925,7 @@ html.is-replay #world {
 
 @keyframes ui-dictate-pulse {
   50% {
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-danger, #ff8a8a) 25%, transparent);
+    opacity: 1;
   }
 }
 
@@ -7909,8 +7981,9 @@ html.is-replay #world {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-dictate.is-recording {
+  .ui-dictate.is-recording::after {
     animation: none;
+    opacity: 1;
   }
 }
 
@@ -8789,8 +8862,7 @@ html.is-replay #world {
 
 .ui-deliv-modal::backdrop,
 .ui-deliv-viewer::backdrop {
-  background: rgba(5, 8, 14, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(5, 8, 14, 0.76);
 }
 
 .ui-deliv-modal[open] {
@@ -9179,9 +9251,7 @@ html.is-replay #world {
 }
 
 .ui-world-dialog::backdrop {
-  background: rgba(8, 10, 16, 0.6);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background: rgba(8, 10, 16, 0.66);
 }
 
 .ui-world-dialog__head {
@@ -9790,9 +9860,7 @@ html.is-replay #world {
 }
 
 .ui-world-popup::backdrop {
-  background: rgba(8, 10, 16, 0.6);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background: rgba(8, 10, 16, 0.66);
 }
 
 .ui-world-popup__head {
@@ -10185,8 +10253,7 @@ html.is-replay #world {
 }
 
 .ui-world-sent::backdrop {
-  background: rgba(5, 8, 14, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(5, 8, 14, 0.76);
 }
 
 .ui-world-sent[open] {
@@ -10662,11 +10729,10 @@ html.is-replay #world {
   bottom: calc(12px + env(safe-area-inset-bottom));
   padding: 4px;
   border-radius: var(--radius);
-  background: var(--ui-bg);
+  background: var(--ui-bg-glass);
   border: 1px solid var(--ui-line-strong);
   box-shadow: 0 8px 22px rgba(5, 7, 12, 0.45);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  contain: layout;
 }
 
 .ui-city-minimap__canvas {
@@ -10885,11 +10951,10 @@ html.is-replay #world {
   padding: 12px;
   overflow: auto;
   border-radius: var(--radius);
-  background: var(--ui-bg);
+  background: var(--ui-bg-glass);
   border: 1px solid var(--ui-line-strong);
   box-shadow: 0 12px 30px rgba(5, 7, 12, 0.45);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  contain: layout;
   color: var(--ui-text);
 }
 

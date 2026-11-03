@@ -44,6 +44,8 @@ export class Camera {
   minZoom = ZOOM_MIN;
   bounds: Bounds = { x: 0, y: 0, w: 800, h: 600 };
   follow: string | null = null;
+  /** Avisa que a câmera foi mexida de fora (arrastar, zoom, animação): o desenho sobe de ritmo (frame-pacer.ts). */
+  onActivity: (() => void) | null = null;
   /** Margens cobertas pela UI (px CSS): enquadramentos usam só a área livre. */
   insets = { top: 0, right: 0, bottom: 0, left: 0 };
   private anim: { fx: number; fy: number; fz: number; tx: number; ty: number; tz: number; t0: number; dur: number } | null = null;
@@ -101,6 +103,7 @@ export class Camera {
   animateTo(x: number, y: number, zoom: number, now: number, dur = 400): void {
     const tz = Math.max(Math.min(this.minZoom, ZOOM_MIN), Math.min(ZOOM_MAX, zoom));
     this.anim = { fx: this.x, fy: this.y, fz: this.zoom, tx: x, ty: y, tz, t0: now, dur };
+    this.onActivity?.();
   }
 
   stop(): void {
@@ -113,6 +116,7 @@ export class Camera {
     this.x -= dx / this.zoom;
     this.y -= dy / this.zoom;
     this.clamp();
+    this.onActivity?.();
   }
 
   /** Zoom ancorado num ponto da tela (CSS px). */
@@ -130,6 +134,7 @@ export class Camera {
       this.zoom = z;
       this.freeZoom = true;
       this.clamp();
+      this.onActivity?.();
     }
   }
 

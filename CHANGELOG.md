@@ -48,6 +48,16 @@ do meio (0.**3**.0).
   `.env.sample` e `.env.template`), chaves e certificados, `.npmrc`, `.netrc`, `.pgpass`, `credentials*`,
   `secrets.*` e `service-account*.json` ficam bloqueados; código como `token.service.ts` ou `RecuperarSenha.js` passa
   a abrir. As entregas continuam com a regra de antes.
+- **Muito menos CPU/GPU e bateria.** O escritório e a cidade desenham a 30 quadros por segundo quando você mexe neles
+  (ponteiro, roda, câmera andando, seleção) ou quando o escritório muda (agente trabalhando, esperando, sala nova), a
+  10 quando está tudo parado, e a 8 com a janela visível mas sem foco; o tempo do mundo segue na mesma velocidade e o
+  desenho volta ao ritmo ativo na hora. Terminais, feed, gaveta, envio de mensagens e permissões não passam por esse
+  ritmo e seguem como sempre. As dicas que andam junto do canvas (a do agente sob o cursor e a do elevador na visita)
+  acompanham o desenho do mundo, sem laço próprio, e a reprodução do timelapse anda a ~30 Hz. Os painéis, a barra do
+  topo, o terminal e os diálogos deixaram de usar `backdrop-filter` (o desfoque era recalculado a cada quadro do
+  canvas): o fundo ficou um pouco mais denso, sem desfoque. O pulso do ponto "esperando", o brilho do contador de
+  pedidos pendentes, o aviso de alerta e o botão de ditado gravando animam só opacidade, e as animações em laço ficam
+  em pausa com a aba oculta.
 
 ### Corrigido
 
